@@ -79,7 +79,7 @@ class HomeScreen extends StatelessWidget {
               // 빠른 메뉴
               _menuCard(Icons.alarm, '알람 관리', '2개의 알람이 설정됨', () => onTabChange(1)),
               const SizedBox(height: 12),
-              _menuCard(Icons.psychology, '학습 자료 입력', 'AI가 자동으로 요약해드려요', () => onTabChange(3)),
+              _menuCard(Icons.psychology, '학습 자료 입력', 'AI가 자동으로 요약해드려요', () => onTabChange(2)),
               const SizedBox(height: 12),
 
               // 알람 울리는 중 데모

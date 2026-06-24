@@ -10,6 +10,7 @@ import 'screens/alarm_add_screen.dart';
 import 'screens/study_material_screen.dart';
 import 'screens/ai_summary_screen.dart';
 import 'screens/alarm_ringing_screen.dart';
+import 'screens/my_page_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
@@ -103,55 +104,79 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
 
-  final _labels = ['홈', '알람 목록', '알람 추가','학습 자료', 'AI 요약', '알람 울림'];
-
-  Widget _buildScreen() {
+  Widget _buildScreen(BuildContext context) {
     switch (_tab) {
-      case 0: return HomeScreen(onTabChange: (i) => setState(() => _tab = i));
-      case 1: return AlarmListScreen(alarms: sampleAlarms, onAdd: () => setState(() => _tab = 2));
-      case 2: return const AlarmAddScreen();
-      case 3: return StudyMaterialScreen(materials: sampleMaterials, onSummary: (m) => setState(() => _tab = 4));
-      case 4: return AiSummaryScreen(material: sampleMaterials[0]);
-      case 5: return AlarmRingingScreen(alarm: sampleAlarms[0]);
-      default: return HomeScreen(onTabChange: (i) => setState(() => _tab = i));
+      case 0:
+        return HomeScreen(onTabChange: (i) {
+          if (i == 5) {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => AlarmRingingScreen(alarm: sampleAlarms[0]),
+            ));
+          } else {
+            setState(() => _tab = i.clamp(0, 3));
+          }
+        });
+      case 1:
+        return AlarmListScreen(
+          alarms: sampleAlarms,
+          onAdd: () => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const AlarmAddScreen(),
+          )),
+        );
+      case 2:
+        return StudyMaterialScreen(
+          materials: sampleMaterials,
+          onSummary: (m) => Navigator.push(context, MaterialPageRoute(
+            builder: (_) => AiSummaryScreen(material: m),
+          )),
+        );
+      case 3:
+        return const MyPageScreen();
+      default:
+        return HomeScreen(onTabChange: (_) {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildScreen(),
+      body: _buildScreen(context),
       bottomNavigationBar: Container(
-        color: kBg,
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(_labels.length, (i) {
-              final isSelected = _tab == i;
-              return GestureDetector(
-                onTap: () => setState(() => _tab = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? kPrimary : kCard,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: isSelected ? kPrimary : kBorder),
-                  ),
-                  child: Text(
-                    _labels[i],
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : kMuted,
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: kBorder, width: 1)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _tab,
+          onTap: (i) => setState(() => _tab = i),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: kCard,
+          selectedItemColor: kPrimary,
+          unselectedItemColor: kMuted,
+          elevation: 0,
+          selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(fontSize: 11),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: '홈',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.alarm_outlined),
+              activeIcon: Icon(Icons.alarm),
+              label: '알람 설정',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.psychology_outlined),
+              activeIcon: Icon(Icons.psychology),
+              label: 'AI학습',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: '마이페이지',
+            ),
+          ],
         ),
       ),
     );
