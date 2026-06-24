@@ -5,9 +5,12 @@ import '../models/study_material.dart';
 class StudyMaterialScreen extends StatelessWidget {
   final List<StudyMaterial> materials;
   final Function(StudyMaterial) onSummary;
-  const StudyMaterialScreen({super.key, required this.materials, required this.onSummary});
 
-
+  const StudyMaterialScreen({
+    super.key,
+    required this.materials,
+    required this.onSummary,
+  });
 
   @override
   Widget build(BuildContext context) {

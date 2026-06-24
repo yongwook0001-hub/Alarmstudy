@@ -10,8 +10,12 @@ import 'screens/alarm_add_screen.dart';
 import 'screens/study_material_screen.dart';
 import 'screens/ai_summary_screen.dart';
 import 'screens/alarm_ringing_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();  // ← 추가
+  await dotenv.load(fileName: '.env');         // ← 추가
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -99,7 +103,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
 
-  final _labels = ['홈', '알람 목록', '학습 자료', 'AI 요약', '알람 울림'];
+  final _labels = ['홈', '알람 목록', '알람 추가','학습 자료', 'AI 요약', '알람 울림'];
 
   Widget _buildScreen() {
     switch (_tab) {

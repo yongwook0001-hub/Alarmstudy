@@ -30,12 +30,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    http: ^1.2.0        # HTTP 요청
-    flutter_dotenv: ^5.1.0  # API 키 환경변수 관리
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  http: ^1.2.0
+  flutter_dotenv: ^5.1.0
+  google_generative_ai: ^0.4.3   # ← 추가
+
 
 dev_dependencies:
   flutter_test:
@@ -55,7 +55,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-
+  assets:
+    - .env
 
 #  assets:
 #    - fonts/D2coding.ttf
