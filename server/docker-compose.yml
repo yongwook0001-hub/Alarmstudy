@@ -1,0 +1,32 @@
+services:
+
+  #데이터베이스
+  db:
+    image: postgres:16
+    container_name: miraclemornings-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"       #로컬에서 DB 직접 접근할 때 (DB 툴 등)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   #컨테이너 종료해도 데이터 유지
+
+  #서버
+  api:
+    build: .              #.../Dockerfile
+    container_name: miraclemornings-api
+    restart: always
+    ports:
+      - "8000:8000"       #localhost:8000 -> Swagger 접근 가능
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      - db                #db가 먼저 실행된 후 api 실행
+    volumes:
+      - .:/app            #코드 변경 시 자동 반영
+
+volumes:
+  postgres_data:          #DB 데이터 영구 저장
