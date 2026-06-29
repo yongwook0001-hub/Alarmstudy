@@ -1,3 +1,5 @@
+import 'quiz_question.dart';
+
 class StudyMaterial {
   final int id;
   final String subject;
@@ -6,6 +8,7 @@ class StudyMaterial {
   final String summary;
   final List<String> keyPoints;
   final int quizCount;
+  final List<QuizQuestion> quizQuestions; // 업로드 시 미리 생성해둔 퀴즈
 
   StudyMaterial({
     required this.id,
@@ -15,5 +18,6 @@ class StudyMaterial {
     required this.summary,
     required this.keyPoints,
     required this.quizCount,
+    this.quizQuestions = const [],
   });
 }

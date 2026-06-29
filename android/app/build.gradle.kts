@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "tuk.alarmai.alarm_study"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

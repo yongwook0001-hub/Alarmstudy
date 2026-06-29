@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../main.dart';
 
 class HomeScreen extends StatelessWidget {
   final Function(int) onTabChange;
