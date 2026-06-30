@@ -32,12 +32,12 @@ final _initialAlarms = [
   AlarmModel(
     id: 1, time: '06:30', label: '출근 준비',
     active: true, days: ['월', '화', '수', '목', '금'],
-    quizSubject: '한국사', // 이 과목과 같은 학습자료가 퀴즈 출제에 사용됨
+    quizSubject: '한국사', materialId: 1,
   ),
   AlarmModel(
     id: 2, time: '08:00', label: '주말 공부',
     active: false, days: ['토', '일'],
-    quizSubject: '영어',
+    quizSubject: '영어', materialId: 2,
   ),
 ];
 
@@ -151,16 +151,6 @@ class _MainShellState extends State<MainShell> {
   // 알람 목록
   final List<AlarmModel> _alarms = List.from(_initialAlarms);
 
-  // 알람의 quizSubject와 같은 과목의 학습자료를 찾아 반환
-  // 알람이 울릴 때 이 자료로 Gemini가 퀴즈를 생성함
-  StudyMaterial? _findMaterialForAlarm(AlarmModel alarm) {
-    try {
-      return _materials.lastWhere((m) => m.subject == alarm.quizSubject);
-    } catch (_) {
-      return null; // 해당 과목 자료 없으면 null (퀴즈 없이 알람 끄기 가능)
-    }
-  }
-
   // 학습자료가 추가될 때 목록 앞에 삽입
   void _onMaterialAdded(StudyMaterial material) {
     setState(() => _materials.insert(0, material));
@@ -169,25 +159,31 @@ class _MainShellState extends State<MainShell> {
   Widget _buildScreen(BuildContext context) {
     switch (_tab) {
       case 0:
-        return HomeScreen(onTabChange: (i) {
-          if (i == 5) {
-            // 홈 화면 데모 버튼 → 첫 번째 알람으로 AlarmRingingScreen 실행
-            final alarm = _alarms[0];
-            final material = _findMaterialForAlarm(alarm);
-            Navigator.push(context, MaterialPageRoute(
+        return HomeScreen(
+          onTabChange: (i) => setState(() => _tab = i.clamp(0, 3)),
+          alarms: _alarms,
+          materials: _materials,
+          onDemoAlarm: (alarm, material) => Navigator.push(
+            context,
+            MaterialPageRoute(
               builder: (_) => AlarmRingingScreen(alarm: alarm, material: material),
-            ));
-          } else {
-            setState(() => _tab = i.clamp(0, 3));
-          }
-        });
+            ),
+          ),
+        );
 
       case 1:
         return AlarmListScreen(
           alarms: _alarms,
-          onAdd: () => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => const AlarmAddScreen(),
-          )),
+          materials: _materials,
+          onAdd: () async {
+            final alarm = await Navigator.push<AlarmModel>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AlarmAddScreen(materials: _materials),
+              ),
+            );
+            if (alarm != null) setState(() => _alarms.add(alarm));
+          },
         );
 
       case 2:
@@ -203,7 +199,12 @@ class _MainShellState extends State<MainShell> {
         return const MyPageScreen();
 
       default:
-        return HomeScreen(onTabChange: (_) {});
+        return HomeScreen(
+          onTabChange: (_) {},
+          alarms: _alarms,
+          materials: _materials,
+          onDemoAlarm: (_, __) {},
+        );
     }
   }
 

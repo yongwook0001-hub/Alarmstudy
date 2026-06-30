@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/alarm_model.dart';
+import '../models/study_material.dart';
 
 class HomeScreen extends StatelessWidget {
   final Function(int) onTabChange;
-  const HomeScreen({super.key, required this.onTabChange});
+  final List<AlarmModel> alarms;
+  final List<StudyMaterial> materials;
+  final Function(AlarmModel, StudyMaterial?) onDemoAlarm;
+
+  const HomeScreen({
+    super.key,
+    required this.onTabChange,
+    required this.alarms,
+    required this.materials,
+    required this.onDemoAlarm,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +95,7 @@ class HomeScreen extends StatelessWidget {
 
               // 알람 울리는 중 데모
               GestureDetector(
-                onTap: () => onTabChange(5),
+                onTap: () => _showDemoPicker(context),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -107,7 +119,7 @@ class HomeScreen extends StatelessWidget {
                           children: [
                             Text('알람 울리는 중 (데모)',
                                 style: TextStyle(color: kFg, fontWeight: FontWeight.bold)),
-                            Text('퀴즈를 풀어야 알람이 꺼집니다',
+                            Text('알람을 선택해서 퀴즈를 체험해보세요',
                                 style: TextStyle(color: kMuted, fontSize: 12)),
                           ],
                         ),
@@ -122,6 +134,108 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showDemoPicker(BuildContext context) {
+    if (alarms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('설정된 알람이 없습니다. 먼저 알람을 추가해주세요.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: kBorder, borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('데모할 알람 선택',
+                style: TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            const Text('해당 알람에 연결된 학습자료로 퀴즈가 실행됩니다',
+                style: TextStyle(color: kMuted, fontSize: 12)),
+            const SizedBox(height: 16),
+            ...alarms.map((alarm) {
+              final material = _findMaterial(alarm);
+              return GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  onDemoAlarm(alarm, material);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: kBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kBorder),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: kRed.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.alarm, color: kRed, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Text(alarm.time,
+                              style: const TextStyle(color: kFg, fontWeight: FontWeight.bold, fontSize: 15)),
+                          const SizedBox(width: 8),
+                          Text(alarm.label,
+                              style: const TextStyle(color: kMuted, fontSize: 13)),
+                        ]),
+                        const SizedBox(height: 2),
+                        Text(
+                          material != null
+                              ? '${material.subject} · ${material.title}'
+                              : '퀴즈 없음',
+                          style: TextStyle(
+                            color: material != null ? kPrimaryLight : kMuted,
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ]),
+                    ),
+                    const Icon(Icons.play_circle_outline, color: kRed, size: 22),
+                  ]),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  StudyMaterial? _findMaterial(AlarmModel alarm) {
+    if (alarm.materialId == null) return null;
+    try {
+      return materials.firstWhere((m) => m.id == alarm.materialId);
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _chip(String text) {

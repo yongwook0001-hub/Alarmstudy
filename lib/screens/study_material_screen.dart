@@ -22,16 +22,16 @@ class StudyMaterialScreen extends StatefulWidget {
 
 class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
   final _textController = TextEditingController();
-  String _selectedSubject = '한국사';
+  final _subjectController = TextEditingController();
   bool _loading = false;
   String? _error;
   String? _pickedFileName;
-
-  static const _subjects = ['한국사', '영어', '수학', '과학', '사회', '기타'];
+  String _loadingStatus = '';
 
   @override
   void dispose() {
     _textController.dispose();
+    _subjectController.dispose();
     super.dispose();
   }
 
@@ -44,30 +44,46 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
-    if (file.bytes == null) return;
 
-    // Gemini 인라인 전송 한도 10MB — 초과 시 API 에러 방지
-    const maxBytes = 10 * 1024 * 1024;
-    if (file.bytes!.length > maxBytes) {
-      setState(() => _error = 'PDF가 너무 큽니다 (최대 20MB). 더 작은 파일을 사용해주세요.');
+    // bytes가 null이면 파일 읽기 실패
+    if (file.bytes == null) {
+      setState(() => _error = 'PDF 파일을 읽지 못했습니다 (bytes == null). 다시 시도해주세요.');
+      debugPrint('[PDF] 파일 선택됐으나 bytes == null: ${file.name}');
       return;
     }
+
+    final sizeKb = (file.bytes!.length / 1024).toStringAsFixed(1);
+    debugPrint('[PDF] 파일 읽기 성공: ${file.name}, ${sizeKb}KB');
+
+    // Gemini 인라인 전송 한도 10MB
+    const maxBytes = 10 * 1024 * 1024;
+    if (file.bytes!.length > maxBytes) {
+      setState(() => _error = 'PDF가 너무 큽니다 (${sizeKb}KB / 최대 10MB). 더 작은 파일을 사용해주세요.');
+      return;
+    }
+
+    final subject = _subjectController.text.trim().isEmpty
+        ? '기타'
+        : _subjectController.text.trim();
 
     setState(() {
       _loading = true;
       _error = null;
       _pickedFileName = file.name;
+      _loadingStatus = 'PDF 스캔 중... (${sizeKb}KB)';
       _textController.clear();
     });
 
     try {
+      setState(() => _loadingStatus = 'Gemini AI 분석 중...');
       final material = await AiService.summarizePdf(
         pdfBytes: file.bytes!,
-        subject: _selectedSubject,
+        subject: subject,
       );
       widget.onMaterialAdded(material);
       setState(() {
         _loading = false;
+        _loadingStatus = '';
         _pickedFileName = null;
       });
       if (mounted) {
@@ -76,9 +92,12 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
         );
       }
     } catch (e) {
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+      debugPrint('[PDF] 오류 발생: $errorMsg');
       setState(() {
         _loading = false;
-        _error = 'PDF 분석 실패: $e';
+        _loadingStatus = '';
+        _error = errorMsg;
       });
     }
   }
@@ -90,6 +109,10 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
       return;
     }
 
+    final subject = _subjectController.text.trim().isEmpty
+        ? '기타'
+        : _subjectController.text.trim();
+
     setState(() {
       _loading = true;
       _error = null;
@@ -99,7 +122,7 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
     try {
       final material = await AiService.summarizeText(
         text: text,
-        subject: _selectedSubject,
+        subject: subject,
       );
       widget.onMaterialAdded(material);
       setState(() {
@@ -151,13 +174,15 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
               const Text('학습 자료 입력', style: TextStyle(color: kMuted, fontSize: 13)),
               const SizedBox(height: 12),
 
-              // 과목 선택
-              DropdownButtonFormField<String>(
-                initialValue: _selectedSubject,
-                dropdownColor: kCard,
+              // 과목명 직접 입력
+              TextField(
+                controller: _subjectController,
+                style: const TextStyle(color: kFg, fontSize: 14),
                 decoration: InputDecoration(
-                  labelText: '과목',
+                  labelText: '과목명',
+                  hintText: '예: 운영체제, 통계학, 마케팅원론',
                   labelStyle: const TextStyle(color: kMuted),
+                  hintStyle: const TextStyle(color: kMuted, fontSize: 12),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: kBorder),
@@ -168,9 +193,6 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                style: const TextStyle(color: kFg),
-                items: _subjects.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: (v) => setState(() => _selectedSubject = v!),
               ),
               const SizedBox(height: 12),
 
@@ -219,9 +241,20 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
                 const SizedBox(height: 12),
               ],
 
-              // 에러
+              // 에러 (디버그: 전체 메시지 표시)
               if (_error != null) ...[
-                Text(_error!, style: const TextStyle(color: kRed, fontSize: 12)),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: kRed.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: kRed.withOpacity(0.3)),
+                  ),
+                  child: SelectableText(
+                    _error!,
+                    style: const TextStyle(color: kRed, fontSize: 12, height: 1.5),
+                  ),
+                ),
                 const SizedBox(height: 8),
               ],
 
@@ -252,10 +285,17 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: _loading
-                          ? const SizedBox(
-                              width: 16, height: 16,
-                              child: CircularProgressIndicator(color: kPrimary, strokeWidth: 2),
-                            )
+                          ? Row(children: [
+                              const SizedBox(
+                                width: 14, height: 14,
+                                child: CircularProgressIndicator(color: kPrimary, strokeWidth: 2),
+                              ),
+                              if (_loadingStatus.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Text(_loadingStatus,
+                                    style: const TextStyle(color: kMuted, fontSize: 11)),
+                              ],
+                            ])
                           : const Row(children: [
                               Icon(Icons.auto_awesome, color: Colors.white, size: 14),
                               SizedBox(width: 4),

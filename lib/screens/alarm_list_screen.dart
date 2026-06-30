@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/alarm_model.dart';
+import '../models/study_material.dart';
 
 class AlarmListScreen extends StatefulWidget {
   final List<AlarmModel> alarms;
+  final List<StudyMaterial> materials;
   final VoidCallback onAdd;
-  const AlarmListScreen({super.key, required this.alarms, required this.onAdd});
+  const AlarmListScreen({
+    super.key,
+    required this.alarms,
+    required this.materials,
+    required this.onAdd,
+  });
 
   @override
   State<AlarmListScreen> createState() => _AlarmListScreenState();
@@ -61,6 +68,16 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
     );
   }
 
+  String _quizLabel(AlarmModel alarm) {
+    if (alarm.materialId == null) return '퀴즈 없음';
+    try {
+      final m = widget.materials.firstWhere((m) => m.id == alarm.materialId);
+      return '${m.subject} · ${m.title}';
+    } catch (_) {
+      return '학습자료 없음';
+    }
+  }
+
   Widget _alarmCard(AlarmModel alarm) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -114,12 +131,19 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: [
-                const Icon(Icons.psychology, color: kPrimary, size: 16),
-                const SizedBox(width: 6),
-                Text('퀴즈 과목: ', style: const TextStyle(color: kMuted, fontSize: 13)),
-                Text(alarm.quizSubject, style: const TextStyle(color: kPrimaryLight, fontSize: 13)),
-              ]),
+              Expanded(
+                child: Row(children: [
+                  const Icon(Icons.psychology, color: kPrimary, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _quizLabel(alarm),
+                      style: const TextStyle(color: kPrimaryLight, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ]),
+              ),
               const Icon(Icons.delete_outline, color: kMuted, size: 20),
             ],
           ),
