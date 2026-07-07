@@ -4,17 +4,53 @@ import '../models/study_material.dart';
 
 class AiSummaryScreen extends StatelessWidget {
   final StudyMaterial material;
-  const AiSummaryScreen({super.key, required this.material});
+  final VoidCallback? onDelete;
+
+  const AiSummaryScreen({super.key, required this.material, this.onDelete});
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        title: const Text('삭제할까요?', style: TextStyle(color: kFg)),
+        content: Text('"${material.title}"을(를) 삭제하면 되돌릴 수 없어요.',
+            style: const TextStyle(color: kMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소', style: TextStyle(color: kMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제', style: TextStyle(color: kRed))),
+        ],
+      ),
+    );
+    if (confirmed == true) onDelete?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasAttempts = (material.correctCount + material.wrongCount) > 0;
+
     return Scaffold(
       backgroundColor: kBg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // 과목 태그
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios, color: kFg, size: 18),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                if (onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: kMuted),
+                    onPressed: () => _confirmDelete(context),
+                  ),
+              ],
+            ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -45,7 +81,6 @@ class AiSummaryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // 요약
             _card(
               title: '요약',
               child: Text(material.summary,
@@ -53,7 +88,6 @@ class AiSummaryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 핵심 포인트
             _card(
               title: '핵심 포인트',
               child: Column(
@@ -71,43 +105,138 @@ class AiSummaryScreen extends StatelessWidget {
                           style: const TextStyle(color: kPrimaryLight, fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                     const SizedBox(width: 12),
-                    Text(e.value, style: const TextStyle(color: kFg, fontSize: 14)),
+                    Expanded(child: Text(e.value, style: const TextStyle(color: kFg, fontSize: 14))),
                   ]),
                 )).toList(),
               ),
             ),
             const SizedBox(height: 12),
 
-            // 알람 퀴즈
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: kAccent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kAccent.withOpacity(0.3)),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Icon(Icons.psychology, color: kAccent, size: 16),
-                  SizedBox(width: 6),
-                  Text('알람 퀴즈', style: TextStyle(color: kAccent, fontWeight: FontWeight.bold)),
-                ]),
-                const SizedBox(height: 8),
-                Text('이 자료를 기반으로 ${material.quizCount}개의 퀴즈가 생성되어 알람 해제에 사용됩니다.',
-                    style: const TextStyle(color: kMuted, fontSize: 13, height: 1.5)),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: kAccent, borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text('미리 풀어보기 →',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            // 문제 통계 분석 - 실제 풀이 기록이 있을 때만 표시
+            if (hasAttempts) ...[
+              _card(
+                title: '문제 통계 분석',
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _accuracyDonut(material.accuracy ?? 0),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _statRow('푼 문제', '${material.correctCount + material.wrongCount}개', kFg),
+                          const SizedBox(height: 8),
+                          _statRow('맞힌 문제', '${material.correctCount}개', kPrimary),
+                          const SizedBox(height: 8),
+                          _statRow('틀린 문제', '${material.wrongCount}개', kRed),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
-            ),
+              ),
+              const SizedBox(height: 12),
+
+              if (material.topicAccuracy.isNotEmpty)
+                _card(
+                  title: '주제별 정답률',
+                  child: Column(
+                    children: material.topicAccuracy.entries.map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(e.key, style: const TextStyle(color: kFg, fontSize: 13)),
+                              Text('${e.value.round()}%', style: const TextStyle(color: kMuted, fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: e.value / 100,
+                              minHeight: 8,
+                              backgroundColor: kBorder,
+                              valueColor: const AlwaysStoppedAnimation(kPrimary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              const SizedBox(height: 12),
+            ] else
+              _card(
+                title: '문제 통계 분석',
+                child: const Text('아직 이 자료로 퀴즈를 푼 기록이 없어요.\n알람이 울릴 때 퀴즈를 풀면 여기에 통계가 쌓여요.',
+                    style: TextStyle(color: kMuted, fontSize: 13, height: 1.5)),
+              ),
+
+            // 약점 피드백
+            if (material.weakestTopic != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: kAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kAccent.withOpacity(0.3)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.lightbulb_outline, color: kAccent, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${material.weakestTopic} 파트가 약해요. 다음 퀴즈는 ${material.weakestTopic} 위주로 출제할게요.',
+                      style: const TextStyle(color: kMuted, fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+
+            const SizedBox(height: 20),
           ]),
         ),
+      ),
+    );
+  }
+
+  Widget _statRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: kMuted, fontSize: 13)),
+        Text(value, style: TextStyle(color: valueColor, fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _accuracyDonut(double accuracy) {
+    return SizedBox(
+      width: 90,
+      height: 90,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(90, 90),
+            painter: _DonutPainter(percentage: accuracy),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${accuracy.round()}%',
+                  style: const TextStyle(color: kFg, fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('정답률', style: TextStyle(color: kMuted, fontSize: 10)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -127,4 +256,43 @@ class AiSummaryScreen extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// 정답률 도넛 차트 - 별도 차트 패키지 없이 CustomPainter로 직접 그림
+class _DonutPainter extends CustomPainter {
+  final double percentage; // 0~100
+
+  _DonutPainter({required this.percentage});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 10.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    final trackPaint = Paint()
+      ..color = kBorder
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    final progressPaint = Paint()
+      ..color = kPrimary
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final sweepAngle = 2 * 3.141592653589793 * (percentage / 100);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.141592653589793 / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
+      oldDelegate.percentage != percentage;
 }

@@ -8,7 +8,6 @@ import 'screens/home_screen.dart';
 import 'screens/alarm_list_screen.dart';
 import 'screens/alarm_add_screen.dart';
 import 'screens/study_material_screen.dart';
-import 'screens/ai_summary_screen.dart';
 import 'screens/alarm_ringing_screen.dart';
 import 'screens/my_page_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -155,6 +154,14 @@ class _MainShellState extends State<MainShell> {
   void _onMaterialAdded(StudyMaterial material) {
     setState(() => _materials.insert(0, material));
   }
+  // 1) _MainShellState 클래스 안에 메서드 하나 추가
+  //    (_onMaterialAdded 메서드 바로 아래에 이어서 넣으면 됩니다)
+  // ─────────────────────────────────────────────────────────
+
+  // 학습자료 삭제 (AiSummaryScreen에서 휴지통 아이콘 눌렀을 때 호출됨)
+  void _onMaterialDeleted(int id) {
+    setState(() => _materials.removeWhere((m) => m.id == id));
+  }
 
   Widget _buildScreen(BuildContext context) {
     switch (_tab) {
@@ -166,7 +173,7 @@ class _MainShellState extends State<MainShell> {
           onDemoAlarm: (alarm, material) => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => AlarmRingingScreen(alarm: alarm, material: material),
+              builder: (_) => AlarmRingingScreen(alarm: alarm, material: material, streakDays: 7),
             ),
           ),
         );
@@ -189,11 +196,10 @@ class _MainShellState extends State<MainShell> {
       case 2:
         return StudyMaterialScreen(
           materials: _materials,
-          onSummary: (m) => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => AiSummaryScreen(material: m),
-          )),
-          onMaterialAdded: _onMaterialAdded, // AI 요약 완료 시 목록에 추가
+          onMaterialAdded: _onMaterialAdded,
+          onMaterialDeleted: _onMaterialDeleted,
         );
+
 
       case 3:
         return const MyPageScreen();

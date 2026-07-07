@@ -17,7 +17,7 @@ class AiService {
   );
 
   // 요약+퀴즈 3문제를 한 번에 요청하는 프롬프트
-  // 토큰을 줄이기 위해 지시문을 최대한 짧게 유지
+  // "t" 필드 추가: 문제가 속한 세부 주제 - 나중에 주제별 정답률 계산에 사용됨
   static const _responseFormat = '''
 JSON만 반환. 다른 텍스트 금지.
 {
@@ -25,10 +25,10 @@ JSON만 반환. 다른 텍스트 금지.
   "summary": "2문장 요약",
   "keyPoints": ["포인트1","포인트2","포인트3"],
   "quiz": [
-    {"q":"문제","o":["보기1","보기2","보기3","보기4"],"a":0}
+    {"q":"문제","o":["보기1","보기2","보기3","보기4"],"a":0,"t":"세부주제명"}
   ]
 }
-quiz는 정확히 3개, a는 0~3 정수.''';
+quiz는 정확히 3개, a는 0~3 정수, t는 문제가 다루는 세부 개념(예: "이진트리","그래프","순회" 등 2~4글자).''';
 
   // ── 텍스트 입력 → 요약+퀴즈 (1회 호출) ──────────────────────
   static Future<StudyMaterial> summarizeText({
@@ -66,7 +66,6 @@ quiz는 정확히 3개, a는 0~3 정수.''';
       } on GenerativeAIException catch (e) {
         debugPrint('[AiService] 시도 $attempt 실패: ${e.message}');
         final msg = e.message;
-        // 503은 서버 과부하 — 3초 대기 후 1회 재시도
         if (attempt == 1 && (msg.contains('503') || msg.toLowerCase().contains('unavailable'))) {
           debugPrint('[AiService] 503 감지 — 3초 후 재시도');
           await Future.delayed(const Duration(seconds: 3));
@@ -93,7 +92,6 @@ quiz는 정확히 3개, a는 0~3 정수.''';
       return Exception('Gemini 오류: $msg');
     }
   }
-  
 
   // ── 공통 파싱 ────────────────────────────────────────────────
   static StudyMaterial _parse(String raw, String subject) {
@@ -104,11 +102,12 @@ quiz는 정확히 3개, a는 0~3 정수.''';
 
     final json = jsonDecode(cleaned);
 
-    // quiz 배열 → QuizQuestion 리스트로 변환
+    // quiz 배열 → QuizQuestion 리스트로 변환 (t가 없으면 subject를 기본 주제로 사용)
     final quizList = (json['quiz'] as List).map((q) => QuizQuestion(
       question: q['q'],
       options: List<String>.from(q['o']),
       correctIndex: q['a'],
+      topic: (q['t'] as String?)?.trim().isNotEmpty == true ? q['t'] : subject,
     )).toList();
 
     return StudyMaterial(
@@ -119,7 +118,7 @@ quiz는 정확히 3개, a는 0~3 정수.''';
       summary: json['summary'],
       keyPoints: List<String>.from(json['keyPoints']),
       quizCount: quizList.length,
-      quizQuestions: quizList, // 미리 생성된 퀴즈 저장
+      quizQuestions: quizList,
     );
   }
 }

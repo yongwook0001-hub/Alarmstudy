@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 
-const kBg      = Color(0xFFF8F9FF); // 전체 배경 — 아주 연한 라벤더 화이트
-const kCard    = Color(0xFFFFFFFF); // 카드 배경 — 순백
-const kPrimary = Color(0xFF6C63FF); // 브랜드 보라 (유지)
-const kPrimaryLight = Color(0xFF8A83FF); // 보라 밝은 톤
+import 'package:flutter/material.dart';
+
+// 배경/전경
+const kBg = Color(0xFFFFFFFF);
+const kFg = Color(0xFF1A1A1A);
+const kMuted = Color(0xFF8E8E93);
+
+// 카드/입력창/테두리
+const kCard = Color(0xFFF7F7F9);
+const kBorder = Color(0xFFE5E5EA);
+
+// 브랜드 컬러 - 로고/버튼에 쓰는 메인 블루
+const kPrimary = Color(0xFF3D5CFF);
+const kPrimaryLight = Color(0xFF3D5CFF); // 그라디언트 제거, 단색으로 통일하되 변수는 유지
+
+// 로고 박스 배경 (연한 라벤더/블루)
+const kLogoBg = Color(0xFFEDEFFD);
 const kAccent  = Color(0xFFFF6B6B); // 강조 (유지)
-const kMuted   = Color(0xFF8E8EA8); // 보조 텍스트 — 중간 회색
-const kBorder  = Color(0xFFE4E4F0); // 테두리 — 연한 라벤더 그레이
+
 const kGreen   = Color(0xFF4ECDC4); // 초록 (유지)
 const kRed     = Color(0xFFFF4757); // 빨강 (유지)
-const kFg      = Color(0xFF1A1A2E); // 본문 텍스트 — 진한 네이비 블랙
