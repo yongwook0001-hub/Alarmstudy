@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/alarm_model.dart';
 import '../models/study_material.dart';
+import 'practice_quiz_select_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(int) onTabChange;
@@ -187,6 +188,36 @@ class _HomeScreenState extends State<HomeScreen> {
                     else
                       const Text('설정된 알람이 없어요', style: TextStyle(color: kMuted, fontSize: 13)),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 가상 문제풀이 버튼 - 알람을 기다리지 않고 바로 퀴즈 연습
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PracticeQuizSelectScreen(materials: widget.materials),
+                  ),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: kPrimary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: kPrimary.withOpacity(0.3)),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.quiz_outlined, color: kPrimary, size: 18),
+                      SizedBox(width: 8),
+                      Text('가상 문제풀이',
+                          style: TextStyle(color: kPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

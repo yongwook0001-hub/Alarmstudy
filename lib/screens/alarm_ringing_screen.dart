@@ -14,12 +14,14 @@ class AlarmRingingScreen extends StatefulWidget {
   final AlarmModel alarm;
   final StudyMaterial? material;
   final int streakDays; // 오늘의 리포트에 표시할 연속 기상 일수
+  final bool practiceMode; // true면 알람 울림 단계 없이 바로 퀴즈로 시작 (가상 문제풀이용)
 
   const AlarmRingingScreen({
     super.key,
     required this.alarm,
     this.material,
     this.streakDays = 0,
+    this.practiceMode = false,
   });
 
   @override
@@ -34,6 +36,15 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
   bool _answered = false;
   final List<QuizAnswerResult> _results = [];
   final Stopwatch _stopwatch = Stopwatch()..start();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.practiceMode && widget.material != null && widget.material!.quizQuestions.isNotEmpty) {
+      _questions = widget.material!.quizQuestions;
+      _quizMode = true;
+    }
+  }
 
   void _startQuiz() {
     if (widget.material == null) {
