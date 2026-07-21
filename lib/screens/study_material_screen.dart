@@ -91,7 +91,7 @@ class StudyMaterialScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: kPrimary.withOpacity(0.15),
+                      color: kPrimary.withValues(alpha:0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(m.subject, style: const TextStyle(color: kPrimaryLight, fontSize: 11)),

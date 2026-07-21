@@ -44,7 +44,7 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
               height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kMuted.withOpacity(0.4), style: BorderStyle.solid, width: 1.5),
+                border: Border.all(color: kMuted.withValues(alpha:0.4), style: BorderStyle.solid, width: 1.5),
               ),
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -100,7 +100,7 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
                 decoration: BoxDecoration(
                   color: isOn ? kPrimary : Colors.transparent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: isOn ? kPrimary : kMuted.withOpacity(0.4)),
+                  border: Border.all(color: isOn ? kPrimary : kMuted.withValues(alpha:0.4)),
                 ),
                 alignment: Alignment.center,
                 child: Text(d, style: TextStyle(

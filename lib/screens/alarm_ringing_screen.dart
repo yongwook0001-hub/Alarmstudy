@@ -53,7 +53,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
               child: Container(
                 width: 200, height: 200,
                 decoration: BoxDecoration(
-                  color: kRed.withOpacity(0.2), shape: BoxShape.circle,
+                  color: kRed.withValues(alpha:0.2), shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
                 child: Container(
@@ -79,9 +79,9 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen>
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: kRed.withOpacity(0.1),
+                  color: kRed.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kRed.withOpacity(0.4)),
+                  border: Border.all(color: kRed.withValues(alpha:0.4)),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Row(children: [

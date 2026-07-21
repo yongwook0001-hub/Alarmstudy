@@ -31,7 +31,7 @@ class MyPageScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: kPrimary.withOpacity(0.3),
+                      backgroundColor: kPrimary.withValues(alpha:0.3),
                       child: const Text('용',
                           style: TextStyle(color: kPrimaryLight, fontSize: 20, fontWeight: FontWeight.bold)),
                     ),
@@ -49,7 +49,7 @@ class MyPageScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                             decoration: BoxDecoration(
-                              color: kPrimary.withOpacity(0.2),
+                              color: kPrimary.withValues(alpha:0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text('7일 연속 학습 중 🔥',
@@ -103,9 +103,9 @@ class MyPageScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: kRed.withOpacity(0.1),
+                    color: kRed.withValues(alpha:0.1),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kRed.withOpacity(0.3)),
+                    border: Border.all(color: kRed.withValues(alpha:0.3)),
                   ),
                   alignment: Alignment.center,
                   child: const Text('로그아웃',

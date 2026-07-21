@@ -18,7 +18,7 @@ class AiSummaryScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: kPrimary.withOpacity(0.15),
+                color: kPrimary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(material.subject, style: const TextStyle(color: kPrimaryLight, fontSize: 12)),
@@ -33,9 +33,9 @@ class AiSummaryScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: kPrimary.withOpacity(0.15),
+                color: kPrimary.withValues(alpha:0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kPrimary.withOpacity(0.3)),
+                border: Border.all(color: kPrimary.withValues(alpha: 0.3)),
               ),
               child: const Row(children: [
                 Icon(Icons.auto_awesome, color: kPrimary, size: 16),
@@ -63,7 +63,7 @@ class AiSummaryScreen extends StatelessWidget {
                     Container(
                       width: 28, height: 28,
                       decoration: BoxDecoration(
-                        color: kPrimary.withOpacity(0.3),
+                        color: kPrimary.withValues(alpha:0.3),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -82,9 +82,9 @@ class AiSummaryScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kAccent.withOpacity(0.1),
+                color: kAccent.withValues(alpha:0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kAccent.withOpacity(0.3)),
+                border: Border.all(color: kAccent.withValues(alpha:0.3)),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Row(children: [

@@ -88,9 +88,9 @@ class HomeScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: kRed.withOpacity(0.15),
+                    color: kRed.withValues(alpha:0.15),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kRed.withOpacity(0.4)),
+                    border: Border.all(color: kRed.withValues(alpha:0.4)),
                   ),
                   child: Row(
                     children: [
@@ -169,7 +169,7 @@ class HomeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: kPrimary.withOpacity(0.2), borderRadius: BorderRadius.circular(12),
+                color: kPrimary.withValues(alpha:0.2), borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: kPrimary, size: 20),
             ),
