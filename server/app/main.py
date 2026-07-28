@@ -1,9 +1,11 @@
-# alarmstudy-server/main.py
+# server/app/main.py
 #
 # 팀원별로 따로 구현되어 있던 파서(front: Gemini 직접 호출 + PDF/재시도/퀴즈 로직,
-# back: 단순 요약, docker: FastAPI 뼈대)를 하나로 합친 버전.
+# back/docker: FastAPI+Postgres 서버 골격)를 하나로 합친 버전.
 # 실제 Gemini 호출과 응답 파싱은 전부 서버(여기)에서 담당하고,
 # Flutter 클라이언트는 이 서버에 HTTP 요청만 보낸다.
+#
+# DB 연동(SQLAlchemy/asyncpg)은 팀원이 별도로 진행 중이라 이 파일에는 포함하지 않았다.
 import asyncio
 import json
 import os
