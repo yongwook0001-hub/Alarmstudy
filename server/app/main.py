@@ -5,7 +5,9 @@
 # 실제 Gemini 호출과 응답 파싱은 전부 서버(여기)에서 담당하고,
 # Flutter 클라이언트는 이 서버에 HTTP 요청만 보낸다.
 #
-# DB 연동(SQLAlchemy/asyncpg)은 팀원이 별도로 진행 중이라 이 파일에는 포함하지 않았다.
+# 인증(구글/카카오 로그인 + JWT)은 auth.py 라우터로 분리해서 아래에 include했다.
+# users/refresh_tokens 외의 나머지 DB 테이블(material_sets, alarms, questions 등)은
+# 팀원이 이어서 작업 중이다.
 import asyncio
 import json
 import os
@@ -15,6 +17,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 import google.generativeai as genai
+
+from .auth import router as auth_router
 
 # .env 파일에서 환경 변수(API 키) 로드
 load_dotenv()
@@ -26,6 +30,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 app = FastAPI(title="AlarmStudy AI Server")
+app.include_router(auth_router)
 
 
 # ── 요청/응답 스키마 ─────────────────────────────────────────────

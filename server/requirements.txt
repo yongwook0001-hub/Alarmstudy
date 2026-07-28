@@ -8,3 +8,6 @@ python-dotenv
 pdfplumber
 python-multipart
 google-generativeai
+pyjwt
+google-auth
+httpx
