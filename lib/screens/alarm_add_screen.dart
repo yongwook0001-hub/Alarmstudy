@@ -85,7 +85,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                       decoration: BoxDecoration(
                         color: on ? kPrimary : kBg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: on ? kPrimary : kMuted.withOpacity(0.4)),
+                        border: Border.all(color: on ? kPrimary : kMuted.withValues(alpha:0.4)),
                       ),
                       alignment: Alignment.center,
                       child: Text(d, style: TextStyle(
@@ -113,9 +113,9 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     onTap: () => setState(() => _selectedSubject = s),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: on ? kPrimary.withOpacity(0.3) : kBg,
+                        color: on ? kPrimary.withValues(alpha: 0.3) : kBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: on ? kPrimary : kMuted.withOpacity(0.3)),
+                        border: Border.all(color: on ? kPrimary : kMuted.withValues(alpha:0.3)),
                       ),
                       alignment: Alignment.center,
                       child: Text(s, style: TextStyle(
