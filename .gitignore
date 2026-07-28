@@ -62,3 +62,5 @@ app.*.map.json
 # 환경변수 — API 키 등 민감 정보 절대 커밋 금지
 .env
 .env.*
+!.env.example
+!**/.env.example
