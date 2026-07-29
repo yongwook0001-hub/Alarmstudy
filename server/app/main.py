@@ -1,10 +1,14 @@
 # alarmstudy-server/main.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import json
+
+from app.api.auth import router as auth_router
+from app.core.errors import AppError
 
 # .env 파일에서 환경 변수(API 키) 로드
 load_dotenv()
@@ -14,6 +18,14 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 app = FastAPI()
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
+
+
+app.include_router(auth_router, prefix="/api")
 
 # 요청 데이터 구조 정의
 class SummarizeRequest(BaseModel):

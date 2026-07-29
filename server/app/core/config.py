@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # 로컬(호스트)에서 alembic 등을 돌릴 때는 미설정 상태로 두고 아래 프로퍼티가 조립한다.
     database_url: str | None = None
 
+    jwt_secret_key: str
+    google_oauth_client_id: str
+
     @property
     def sqlalchemy_database_url(self) -> str:
         if self.database_url:
