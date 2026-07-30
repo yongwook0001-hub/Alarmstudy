@@ -43,12 +43,12 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: kCard,
-        title: const Text('폴더 생성', style: TextStyle(color: kFg)),
+        title: Text('폴더 생성', style: TextStyle(color: kFg)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: kFg),
-          decoration: const InputDecoration(
+          style: TextStyle(color: kFg),
+          decoration: InputDecoration(
             hintText: '예: 운영체제',
             hintStyle: TextStyle(color: kMuted),
           ),
@@ -56,11 +56,11 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소', style: TextStyle(color: kMuted)),
+            child: Text('취소', style: TextStyle(color: kMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('생성', style: TextStyle(color: kPrimary)),
+            child: Text('생성', style: TextStyle(color: kPrimary)),
           ),
         ],
       ),
@@ -103,10 +103,10 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('학습자료',
+                      Text('학습자료',
                           style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      const Text('폴더를 생성하고 PDF를 넣어보세요!',
+                      Text('폴더를 생성하고 PDF를 넣어보세요!',
                           style: TextStyle(color: kMuted, fontSize: 12)),
                     ],
                   ),
@@ -131,7 +131,7 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
               const SizedBox(height: 20),
               Expanded(
                 child: names.isEmpty
-                    ? const Center(
+                    ? Center(
                   child: Text('폴더가 없어요. 우측 상단에서 만들어보세요.',
                       style: TextStyle(color: kMuted, fontSize: 13)),
                 )
@@ -182,22 +182,22 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.folder, color: kPrimary, size: 18),
+                  child: Icon(Icons.folder, color: kPrimary, size: 18),
                 ),
                 if (fileCount == 0)
                   GestureDetector(
                     onTap: () => setState(() => _emptyFolders.remove(name)),
-                    child: const Icon(Icons.more_horiz, color: kMuted, size: 18),
+                    child: Icon(Icons.more_horiz, color: kMuted, size: 18),
                   ),
               ],
             ),
             const Spacer(),
             Text(name,
-                style: const TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text('PDF ${fileCount}개 · 문제 ${totalQuiz}개',
-                style: const TextStyle(color: kMuted, fontSize: 11)),
+                style: TextStyle(color: kMuted, fontSize: 11)),
           ],
         ),
       ),

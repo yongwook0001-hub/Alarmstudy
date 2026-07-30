@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
+import '../models/auth_user.dart';
 import '../services/auth_service.dart';
+import '../services/user_session.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -27,11 +29,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // 구글/카카오 공통 처리: AuthService 호출 → 성공하면 메인 화면으로 이동,
   // 실패하면 화면 아래 SnackBar로 에러 메시지 표시.
-  Future<void> _handleSocialLogin(Future<dynamic> Function() signIn) async {
+  Future<void> _handleSocialLogin(Future<AuthUser> Function() signIn) async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      await signIn();
+      final user = await signIn();
+      UserSession.set(user); // 홈/마이페이지 등에서 이 사용자 이름으로 표시됨
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -73,11 +76,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text('S.O.S',
+                    Text('S.O.S',
                         style: TextStyle(
                             color: kFg, fontSize: 26, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    const Text('SOLVE TO STOP',
+                    Text('SOLVE TO STOP',
                         style: TextStyle(
                             color: kPrimary,
                             fontSize: 12,
@@ -89,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 48),
 
               // 이메일
-              const Text('이메일',
+              Text('이메일',
                   style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               _inputField(
@@ -100,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
 
               // 비밀번호
-              const Text('비밀번호',
+              Text('비밀번호',
                   style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               _inputField(
@@ -109,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscure: true,
               ),
               const SizedBox(height: 8),
-              const Align(
+              Align(
                 alignment: Alignment.centerRight,
                 child: Text('비밀번호를 잊으셨나요?',
                     style: TextStyle(color: kMuted, fontSize: 13)),
@@ -135,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               // Divider
-              const Row(children: [
+              Row(children: [
                 Expanded(child: Divider(color: kBorder)),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
@@ -178,14 +181,14 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('계정이 없으신가요? ',
+                  Text('계정이 없으신가요? ',
                       style: TextStyle(color: kMuted, fontSize: 14)),
                   GestureDetector(
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const SignupScreen()),
                     ),
-                    child: const Text('회원가입',
+                    child: Text('회원가입',
                         style: TextStyle(
                             color: kPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
@@ -215,10 +218,10 @@ class _LoginScreenState extends State<LoginScreen> {
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
-        style: const TextStyle(color: kFg),
+        style: TextStyle(color: kFg),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: kMuted),
+          hintStyle: TextStyle(color: kMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: InputBorder.none,
         ),

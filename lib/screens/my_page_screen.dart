@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_controller.dart';
 import '../services/auth_service.dart';
+import '../services/user_session.dart';
 import 'login_screen.dart';
+import 'notification_settings_screen.dart';
+import 'account_info_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
   final String userName;
@@ -25,36 +29,43 @@ class MyPageScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 상단 파란 배너
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                decoration: const BoxDecoration(
-                  color: kPrimary,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.85),
-                        shape: BoxShape.circle,
+              // 상단 배너 — 로그인된 사용자가 있으면 그 이름/이메일, 없으면 목업 기본값
+              ValueListenableBuilder(
+                valueListenable: UserSession.current,
+                builder: (context, user, _) {
+                  final displayName = user?.nickname ?? userName;
+                  final displayEmail = user?.email ?? userEmail;
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    decoration: BoxDecoration(
+                      color: kPrimary,
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(28),
+                        bottomRight: Radius.circular(28),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Text(userName,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(userEmail,
-                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
-                  ],
-                ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.85),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(displayName,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(displayEmail,
+                            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                      ],
+                    ),
+                  );
+                },
               ),
 
               Padding(
@@ -82,9 +93,9 @@ class MyPageScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text('$streakDays일',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
-                                  const Text('연속 미라클 모닝',
+                                  Text('연속 미라클 모닝',
                                       style: TextStyle(color: kMuted, fontSize: 12)),
                                 ],
                               ),
@@ -95,7 +106,7 @@ class MyPageScreen extends StatelessWidget {
                                 color: kPrimary.withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: const Text('1주 달성!',
+                              child: Text('1주 달성!',
                                   style: TextStyle(
                                       color: kPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
@@ -108,8 +119,24 @@ class MyPageScreen extends StatelessWidget {
                     _sectionTitle('학습 설정'),
                     const SizedBox(height: 8),
                     _settingsGroup([
-                      _menuItem('알림 설정', onTap: () {}),
-                      _menuItem('다크 모드', onTap: () {}),
+                      _menuItem('알림 설정', onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                        );
+                      }),
+                      _menuItem(
+                        '다크 모드',
+                        onTap: ThemeController.toggle,
+                        trailing: ValueListenableBuilder<bool>(
+                          valueListenable: ThemeController.isDark,
+                          builder: (context, isDark, _) => Switch(
+                            value: isDark,
+                            activeColor: kPrimary,
+                            onChanged: (_) => ThemeController.toggle(),
+                          ),
+                        ),
+                      ),
                       _menuItem('미션 유형 설정', onTap: () {}),
                     ]),
                     const SizedBox(height: 20),
@@ -117,10 +144,16 @@ class MyPageScreen extends StatelessWidget {
                     _sectionTitle('계정'),
                     const SizedBox(height: 8),
                     _settingsGroup([
-                      _menuItem('계정 정보', onTap: () {}),
+                      _menuItem('계정 정보', onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AccountInfoScreen()),
+                        );
+                      }),
                       _menuItem('로그아웃', onTap: () async {
                         // 저장된 access/refresh token 삭제 + 서버에도 로그아웃 통보
                         await AuthService.logout();
+                        UserSession.clear();
                         if (!context.mounted) return;
                         Navigator.pushAndRemoveUntil(
                           context,
@@ -142,7 +175,7 @@ class MyPageScreen extends StatelessWidget {
 
   Widget _sectionTitle(String text) {
     return Text(text,
-        style: const TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold));
+        style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold));
   }
 
   Widget _settingsGroup(List<Widget> items) {
@@ -157,23 +190,23 @@ class MyPageScreen extends StatelessWidget {
           children: [
             items[i],
             if (i < items.length - 1)
-              const Divider(height: 1, color: kBorder, indent: 16, endIndent: 16),
+              Divider(height: 1, color: kBorder, indent: 16, endIndent: 16),
           ],
         )),
       ),
     );
   }
 
-  Widget _menuItem(String label, {Color color = kFg, required VoidCallback onTap}) {
+  Widget _menuItem(String label, {Color? color, required VoidCallback onTap, Widget? trailing}) {
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           children: [
-            Text(label, style: TextStyle(color: color, fontSize: 15)),
+            Text(label, style: TextStyle(color: color ?? kFg, fontSize: 15)),
             const Spacer(),
-            const Icon(Icons.chevron_right, color: kMuted, size: 18),
+            trailing ?? Icon(Icons.chevron_right, color: kMuted, size: 18),
           ],
         ),
       ),

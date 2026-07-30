@@ -45,11 +45,11 @@ class PracticeQuizSelectScreen extends StatelessWidget {
         backgroundColor: kBg,
         elevation: 0,
         foregroundColor: kFg,
-        title: const Text('가상 문제풀이', style: TextStyle(color: kFg, fontWeight: FontWeight.bold)),
+        title: Text('가상 문제풀이', style: TextStyle(color: kFg, fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: available.isEmpty
-            ? const Center(
+            ? Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
                   child: Text(
@@ -84,7 +84,7 @@ class PracticeQuizSelectScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             alignment: Alignment.center,
-                            child: const Icon(Icons.quiz_outlined, color: kPrimary, size: 20),
+                            child: Icon(Icons.quiz_outlined, color: kPrimary, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -92,18 +92,18 @@ class PracticeQuizSelectScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(m.subject,
-                                    style: const TextStyle(color: kPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+                                    style: TextStyle(color: kPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
                                 Text(m.title,
-                                    style: const TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.w600),
+                                    style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 2),
                                 Text('문제 ${m.quizQuestions.length}개',
-                                    style: const TextStyle(color: kMuted, fontSize: 12)),
+                                    style: TextStyle(color: kMuted, fontSize: 12)),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right, color: kMuted, size: 20),
+                          Icon(Icons.chevron_right, color: kMuted, size: 20),
                         ],
                       ),
                     ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/alarm_model.dart';
 import '../models/study_material.dart';
+import '../services/user_session.dart';
 import 'practice_quiz_select_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -126,11 +127,17 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 인사
-              Text('좋은 아침이에요, ${widget.userName}님 👋',
-                  style: const TextStyle(color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
+              // 인사 — 로그인한 사용자가 있으면 그 이름, 없으면 목업 기본값(widget.userName)
+              ValueListenableBuilder(
+                valueListenable: UserSession.current,
+                builder: (context, user, _) {
+                  final displayName = user?.nickname ?? widget.userName;
+                  return Text('좋은 아침이에요, $displayName님 👋',
+                      style: TextStyle(color: kFg, fontSize: 20, fontWeight: FontWeight.bold));
+                },
+              ),
               const SizedBox(height: 4),
-              Text(_todayLabel, style: const TextStyle(color: kMuted, fontSize: 13)),
+              Text(_todayLabel, style: TextStyle(color: kMuted, fontSize: 13)),
               const SizedBox(height: 20),
 
               // 다음 알람 카운트다운 카드
@@ -148,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('다음 알람까지',
+                        Text('다음 알람까지',
                             style: TextStyle(color: kMuted, fontSize: 13)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -165,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       _nextAlarm != null ? _fmt(_remaining) : '--:--:--',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: kFg, fontSize: 44, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
@@ -174,19 +181,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           const Text('🔔 ', style: TextStyle(fontSize: 13)),
                           Text(_nextAlarm!.time,
-                              style: const TextStyle(color: kMuted, fontSize: 13)),
-                          const Text('  ·  ', style: TextStyle(color: kMuted, fontSize: 13)),
+                              style: TextStyle(color: kMuted, fontSize: 13)),
+                          Text('  ·  ', style: TextStyle(color: kMuted, fontSize: 13)),
                           Expanded(
                             child: Text(
                               material != null ? '${material.subject} ${material.title}' : _nextAlarm!.label,
-                              style: const TextStyle(color: kMuted, fontSize: 13),
+                              style: TextStyle(color: kMuted, fontSize: 13),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       )
                     else
-                      const Text('설정된 알람이 없어요', style: TextStyle(color: kMuted, fontSize: 13)),
+                      Text('설정된 알람이 없어요', style: TextStyle(color: kMuted, fontSize: 13)),
                   ],
                 ),
               ),
@@ -209,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: Border.all(color: kPrimary.withOpacity(0.3)),
                   ),
                   alignment: Alignment.center,
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.quiz_outlined, color: kPrimary, size: 18),
@@ -249,15 +256,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('${widget.streakDays}일 연속 기상 성공',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
                           Text('이번 주 평균 정답률 ${widget.weeklyAccuracy}%',
-                              style: const TextStyle(color: kMuted, fontSize: 12)),
+                              style: TextStyle(color: kMuted, fontSize: 12)),
                         ],
                       ),
                     ),
                     Text('${widget.streakDays}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: kPrimary, fontSize: 26, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -265,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 24),
 
               // 최근 학습 자료
-              const Text('최근 학습 자료',
+              Text('최근 학습 자료',
                   style: TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               if (widget.materials.isEmpty)
@@ -276,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Text('아직 등록된 학습 자료가 없어요',
+                  child: Text('아직 등록된 학습 자료가 없어요',
                       style: TextStyle(color: kMuted, fontSize: 13)),
                 )
               else
@@ -307,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.description_outlined, color: kPrimary, size: 18),
+            child: Icon(Icons.description_outlined, color: kPrimary, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -315,14 +322,14 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(material.title,
-                    style: const TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis),
                 Text('마지막 퀴즈: ${material.date}',
-                    style: const TextStyle(color: kMuted, fontSize: 12)),
+                    style: TextStyle(color: kMuted, fontSize: 12)),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: kMuted, size: 20),
+          Icon(Icons.chevron_right, color: kMuted, size: 20),
         ],
       ),
     );

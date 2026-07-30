@@ -49,9 +49,9 @@ class _MotionMissionScreenState extends State<MotionMissionScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('${widget.wrongCount}문제를 틀렸어요',
-                  style: const TextStyle(color: kFg, fontSize: 22, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: kFg, fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text('화면 속 동작을 똑같이 따라 해주세요',
+              Text('화면 속 동작을 똑같이 따라 해주세요',
                   style: TextStyle(color: kMuted, fontSize: 14)),
               const SizedBox(height: 24),
 
@@ -74,7 +74,7 @@ class _MotionMissionScreenState extends State<MotionMissionScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(children: [
-                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle)),
+                          Container(width: 8, height: 8, decoration: BoxDecoration(color: kRed, shape: BoxShape.circle)),
                           const SizedBox(width: 6),
                           const Text('인식 중', style: TextStyle(color: Colors.white, fontSize: 11)),
                         ]),
@@ -102,7 +102,7 @@ class _MotionMissionScreenState extends State<MotionMissionScreen> {
               Center(
                 child: Text(
                   _recognized ? '동작을 인식하고 있어요...' : '동작을 인식하고 있어요...',
-                  style: const TextStyle(color: kMuted, fontSize: 13),
+                  style: TextStyle(color: kMuted, fontSize: 13),
                 ),
               ),
               const SizedBox(height: 10),

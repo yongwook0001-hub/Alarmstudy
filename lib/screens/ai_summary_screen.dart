@@ -13,12 +13,12 @@ class AiSummaryScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: kCard,
-        title: const Text('삭제할까요?', style: TextStyle(color: kFg)),
+        title: Text('삭제할까요?', style: TextStyle(color: kFg)),
         content: Text('"${material.title}"을(를) 삭제하면 되돌릴 수 없어요.',
-            style: const TextStyle(color: kMuted)),
+            style: TextStyle(color: kMuted)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소', style: TextStyle(color: kMuted))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제', style: TextStyle(color: kRed))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('취소', style: TextStyle(color: kMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('삭제', style: TextStyle(color: kRed))),
         ],
       ),
     );
@@ -39,14 +39,14 @@ class AiSummaryScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: kFg, size: 18),
+                  icon: Icon(Icons.arrow_back_ios, color: kFg, size: 18),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
                 if (onDelete != null)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: kMuted),
+                    icon: Icon(Icons.delete_outline, color: kMuted),
                     onPressed: () => _confirmDelete(context),
                   ),
               ],
@@ -57,11 +57,11 @@ class AiSummaryScreen extends StatelessWidget {
                 color: kPrimary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(material.subject, style: const TextStyle(color: kPrimaryLight, fontSize: 12)),
+              child: Text(material.subject, style: TextStyle(color: kPrimaryLight, fontSize: 12)),
             ),
             const SizedBox(height: 10),
             Text(material.title,
-                style: const TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
+                style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
 
             // AI 배너
@@ -73,7 +73,7 @@ class AiSummaryScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: kPrimary.withOpacity(0.3)),
               ),
-              child: const Row(children: [
+              child: Row(children: [
                 Icon(Icons.auto_awesome, color: kPrimary, size: 16),
                 SizedBox(width: 8),
                 Text('AI가 핵심 내용을 자동 요약했습니다', style: TextStyle(color: kPrimaryLight, fontSize: 13)),
@@ -84,7 +84,7 @@ class AiSummaryScreen extends StatelessWidget {
             _card(
               title: '요약',
               child: Text(material.summary,
-                  style: const TextStyle(color: kFg, fontSize: 14, height: 1.7)),
+                  style: TextStyle(color: kFg, fontSize: 14, height: 1.7)),
             ),
             const SizedBox(height: 12),
 
@@ -102,10 +102,10 @@ class AiSummaryScreen extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: Text('${e.key + 1}',
-                          style: const TextStyle(color: kPrimaryLight, fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: TextStyle(color: kPrimaryLight, fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Text(e.value, style: const TextStyle(color: kFg, fontSize: 14))),
+                    Expanded(child: Text(e.value, style: TextStyle(color: kFg, fontSize: 14))),
                   ]),
                 )).toList(),
               ),
@@ -150,8 +150,8 @@ class AiSummaryScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(e.key, style: const TextStyle(color: kFg, fontSize: 13)),
-                              Text('${e.value.round()}%', style: const TextStyle(color: kMuted, fontSize: 12)),
+                              Text(e.key, style: TextStyle(color: kFg, fontSize: 13)),
+                              Text('${e.value.round()}%', style: TextStyle(color: kMuted, fontSize: 12)),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -161,7 +161,7 @@ class AiSummaryScreen extends StatelessWidget {
                               value: e.value / 100,
                               minHeight: 8,
                               backgroundColor: kBorder,
-                              valueColor: const AlwaysStoppedAnimation(kPrimary),
+                              valueColor: AlwaysStoppedAnimation(kPrimary),
                             ),
                           ),
                         ],
@@ -173,7 +173,7 @@ class AiSummaryScreen extends StatelessWidget {
             ] else
               _card(
                 title: '문제 통계 분석',
-                child: const Text('아직 이 자료로 퀴즈를 푼 기록이 없어요.\n알람이 울릴 때 퀴즈를 풀면 여기에 통계가 쌓여요.',
+                child: Text('아직 이 자료로 퀴즈를 푼 기록이 없어요.\n알람이 울릴 때 퀴즈를 풀면 여기에 통계가 쌓여요.',
                     style: TextStyle(color: kMuted, fontSize: 13, height: 1.5)),
               ),
 
@@ -188,12 +188,12 @@ class AiSummaryScreen extends StatelessWidget {
                   border: Border.all(color: kAccent.withOpacity(0.3)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.lightbulb_outline, color: kAccent, size: 18),
+                  Icon(Icons.lightbulb_outline, color: kAccent, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '${material.weakestTopic} 파트가 약해요. 다음 퀴즈는 ${material.weakestTopic} 위주로 출제할게요.',
-                      style: const TextStyle(color: kMuted, fontSize: 13, height: 1.5),
+                      style: TextStyle(color: kMuted, fontSize: 13, height: 1.5),
                     ),
                   ),
                 ]),
@@ -211,7 +211,7 @@ class AiSummaryScreen extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: kMuted, fontSize: 13)),
+        Text(label, style: TextStyle(color: kMuted, fontSize: 13)),
         Text(value, style: TextStyle(color: valueColor, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
@@ -232,8 +232,8 @@ class AiSummaryScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('${accuracy.round()}%',
-                  style: const TextStyle(color: kFg, fontSize: 18, fontWeight: FontWeight.bold)),
-              const Text('정답률', style: TextStyle(color: kMuted, fontSize: 10)),
+                  style: TextStyle(color: kFg, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('정답률', style: TextStyle(color: kMuted, fontSize: 10)),
             ],
           ),
         ],
@@ -250,7 +250,7 @@ class AiSummaryScreen extends StatelessWidget {
         border: Border.all(color: kBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(color: kMuted, fontSize: 13)),
+        Text(title, style: TextStyle(color: kMuted, fontSize: 13)),
         const SizedBox(height: 12),
         child,
       ]),

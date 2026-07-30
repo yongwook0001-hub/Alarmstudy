@@ -38,11 +38,11 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('알람설정',
+                      Text('알람설정',
                           style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
                       Text('예정된 알람 $activeCount개',
-                          style: const TextStyle(color: kMuted, fontSize: 13)),
+                          style: TextStyle(color: kMuted, fontSize: 13)),
                     ],
                   ),
                   GestureDetector(

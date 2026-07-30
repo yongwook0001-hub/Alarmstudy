@@ -49,11 +49,11 @@ class TodayReportScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('오늘의 리포트',
+              Text('오늘의 리포트',
                   style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text('$_todayLabel · $alarmTime에 기상 완료',
-                  style: const TextStyle(color: kMuted, fontSize: 13)),
+                  style: TextStyle(color: kMuted, fontSize: 13)),
               const SizedBox(height: 20),
 
               // 축하 배너
@@ -72,21 +72,21 @@ class TodayReportScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('오늘도 미라클모닝 성공!',
+                          Text('오늘도 미라클모닝 성공!',
                               style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
                           Text('$streakDays일 연속 기상 중이에요',
-                              style: const TextStyle(color: kMuted, fontSize: 12)),
+                              style: TextStyle(color: kMuted, fontSize: 12)),
                         ],
                       ),
                     ),
                     Text('$streakDays',
-                        style: const TextStyle(color: kPrimary, fontSize: 28, fontWeight: FontWeight.bold)),
+                        style: TextStyle(color: kPrimary, fontSize: 28, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
 
-              const Text('오늘의 기록', style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
+              Text('오늘의 기록', style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
@@ -103,7 +103,7 @@ class TodayReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              const Text('문제 리뷰', style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
+              Text('문제 리뷰', style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               ...results.asMap().entries.map((e) => Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -127,11 +127,11 @@ class TodayReportScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('${e.key + 1}. ${e.value.question}',
-                              style: const TextStyle(color: kFg, fontSize: 14)),
+                              style: TextStyle(color: kFg, fontSize: 14)),
                           if (!e.value.isCorrect) ...[
                             const SizedBox(height: 4),
                             Text('정답: ${e.value.correctAnswerText}',
-                                style: const TextStyle(color: kRed, fontSize: 12)),
+                                style: TextStyle(color: kRed, fontSize: 12)),
                           ],
                         ],
                       ),
@@ -151,11 +151,11 @@ class TodayReportScreen extends StatelessWidget {
                     border: Border.all(color: kAccent.withOpacity(0.3)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.lightbulb_outline, color: kAccent, size: 18),
+                    Icon(Icons.lightbulb_outline, color: kAccent, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text('$weakestTopic 파트가 약해요. 다음 알람에서 더 물어볼게요.',
-                          style: const TextStyle(color: kMuted, fontSize: 13, height: 1.5)),
+                          style: TextStyle(color: kMuted, fontSize: 13, height: 1.5)),
                     ),
                   ]),
                 ),
@@ -183,13 +183,13 @@ class TodayReportScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: kBorder)),
+        border: isLast ? null : Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: kMuted, fontSize: 14)),
-          Text(value, style: const TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: kMuted, fontSize: 14)),
+          Text(value, style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );

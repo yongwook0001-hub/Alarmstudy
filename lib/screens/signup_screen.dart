@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'onboarding_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -31,8 +32,8 @@ class _SignupScreenState extends State<SignupScreen> {
       appBar: AppBar(
         backgroundColor: kBg,
         elevation: 0,
-        title: const Text('회원가입', style: TextStyle(color: kFg)),
-        iconTheme: const IconThemeData(color: kFg),
+        title: Text('회원가입', style: TextStyle(color: kFg)),
+        iconTheme: IconThemeData(color: kFg),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.pop(context),
@@ -44,10 +45,10 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('회원가입',
+              Text('회원가입',
                   style: TextStyle(color: kFg, fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text('계정을 만들고\n나만의 학습 알람을 설정해보세요',
+              Text('계정을 만들고\n나만의 학습 알람을 설정해보세요',
                   style: TextStyle(color: kMuted, fontSize: 14)),
               const SizedBox(height: 32),
 
@@ -104,7 +105,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text('이용약관 및 개인정보 처리방침에 동의합니다',
                         style: TextStyle(color: kFg, fontSize: 13)),
                   ),
@@ -113,8 +114,21 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 28),
 
               // 가입하기 버튼
+              // 주의: 이메일/비밀번호 회원가입은 백엔드 지원이 없어 실제 계정 생성은 안 됨.
+              // UI 흐름 확인용으로 약관 동의 시 온보딩 화면으로 이동만 처리.
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  if (!_agreedToTerms) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('이용약관 및 개인정보 처리방침에 동의해주세요.')),
+                    );
+                    return;
+                  }
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                  );
+                },
                 child: Container(
                   height: 52,
                   width: double.infinity,
@@ -134,11 +148,11 @@ class _SignupScreenState extends State<SignupScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('이미 계정이 있으신가요? ',
+                  Text('이미 계정이 있으신가요? ',
                       style: TextStyle(color: kMuted, fontSize: 14)),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Text('로그인',
+                    child: Text('로그인',
                         style: TextStyle(color: kPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -153,7 +167,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _label(String text) {
     return Text(text,
-        style: const TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600));
+        style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600));
   }
 
   Widget _inputField({
@@ -172,10 +186,10 @@ class _SignupScreenState extends State<SignupScreen> {
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
-        style: const TextStyle(color: kFg),
+        style: TextStyle(color: kFg),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: kMuted),
+          hintStyle: TextStyle(color: kMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: InputBorder.none,
         ),

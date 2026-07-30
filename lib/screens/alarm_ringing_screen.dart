@@ -181,10 +181,10 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(widget.material != null ? '문제 풀고 알람 끄기' : '알람 끄기',
-                          style: const TextStyle(color: kPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+                          style: TextStyle(color: kPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
                       if (widget.material != null) ...[
                         const SizedBox(width: 6),
-                        const Icon(Icons.arrow_forward, color: kPrimary, size: 18),
+                        Icon(Icons.arrow_forward, color: kPrimary, size: 18),
                       ],
                     ],
                   ),
@@ -214,16 +214,16 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close, color: kFg),
+                    icon: Icon(Icons.close, color: kFg),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Text('문제 ${_current + 1} / $total',
-                      style: const TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 48), // 균형용 (X버튼과 대칭)
                 ],
               ),
               Text(widget.material?.subject ?? widget.alarm.quizSubject,
-                  style: const TextStyle(color: kPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: kPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
@@ -243,7 +243,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: kBorder),
                 ),
-                child: Text(q.question, style: const TextStyle(color: kFg, fontSize: 17, height: 1.5)),
+                child: Text(q.question, style: TextStyle(color: kFg, fontSize: 17, height: 1.5)),
               ),
               const SizedBox(height: 20),
 
@@ -288,7 +288,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                               child: Text(letter, style: TextStyle(color: circleColor, fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 12),
-                            Expanded(child: Text(q.options[i], style: const TextStyle(color: kFg, fontSize: 15))),
+                            Expanded(child: Text(q.options[i], style: TextStyle(color: kFg, fontSize: 15))),
                             if (trailing != null) trailing,
                           ]),
                         ),

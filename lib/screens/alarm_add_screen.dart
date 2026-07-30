@@ -51,8 +51,8 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
           mainAxisSize: MainAxisSize.min,
           children: options
               .map((o) => ListTile(
-            title: Text(o, style: const TextStyle(color: kFg)),
-            trailing: o == _alarmSound ? const Icon(Icons.check, color: kPrimary) : null,
+            title: Text(o, style: TextStyle(color: kFg)),
+            trailing: o == _alarmSound ? Icon(Icons.check, color: kPrimary) : null,
             onTap: () => Navigator.pop(context, o),
           ))
               .toList(),
@@ -75,11 +75,11 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close, color: kFg),
+                    icon: Icon(Icons.close, color: kFg),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 4),
-                  const Text('알람 추가',
+                  Text('알람 추가',
                       style: TextStyle(color: kFg, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -101,7 +101,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _timeBox(_time.hour.toString().padLeft(2, '0')),
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.symmetric(horizontal: 10),
                               child: Text(':',
                                   style: TextStyle(
@@ -115,7 +115,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     const SizedBox(height: 28),
 
                     // 알람 이름
-                    const Text('알람 이름', style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text('알람 이름', style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
@@ -125,8 +125,8 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                       ),
                       child: TextField(
                         controller: _labelController,
-                        style: const TextStyle(color: kFg),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: kFg),
+                        decoration: InputDecoration(
                           hintText: '예: 아침 공부',
                           hintStyle: TextStyle(color: kMuted),
                           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -137,7 +137,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     const SizedBox(height: 24),
 
                     // 반복요일
-                    const Text('반복요일', style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text('반복요일', style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -165,7 +165,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     const SizedBox(height: 24),
 
                     // 연결할 학습 자료
-                    const Text('연결할 학습 자료',
+                    Text('연결할 학습 자료',
                         style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
                     if (widget.materials.isEmpty)
@@ -176,7 +176,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: kBorder),
                         ),
-                        child: const Row(children: [
+                        child: Row(children: [
                           Icon(Icons.info_outline, color: kMuted, size: 16),
                           SizedBox(width: 8),
                           Expanded(
@@ -208,12 +208,12 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('알람음', style: TextStyle(color: kFg, fontSize: 14)),
+                            Text('알람음', style: TextStyle(color: kFg, fontSize: 14)),
                             Row(
                               children: [
-                                Text(_alarmSound, style: const TextStyle(color: kMuted, fontSize: 14)),
+                                Text(_alarmSound, style: TextStyle(color: kMuted, fontSize: 14)),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.chevron_right, color: kMuted, size: 20),
+                                Icon(Icons.chevron_right, color: kMuted, size: 20),
                               ],
                             ),
                           ],
@@ -259,7 +259,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
       ),
       alignment: Alignment.center,
       child: Text(value,
-          style: const TextStyle(color: kFg, fontSize: 36, fontWeight: FontWeight.bold)),
+          style: TextStyle(color: kFg, fontSize: 36, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -298,7 +298,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.description_outlined, color: kPrimary, size: 16),
+            child: Icon(Icons.description_outlined, color: kPrimary, size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -310,11 +310,11 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                   ),
                   overflow: TextOverflow.ellipsis),
               Text('최근 업로드: ${material.date}',
-                  style: const TextStyle(color: kMuted, fontSize: 11)),
+                  style: TextStyle(color: kMuted, fontSize: 11)),
             ]),
           ),
           if (isSelected)
-            const Icon(Icons.check_circle, color: kPrimary, size: 18),
+            Icon(Icons.check_circle, color: kPrimary, size: 18),
         ]),
       ),
     );

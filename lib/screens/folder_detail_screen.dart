@@ -144,7 +144,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: kFg, size: 18),
+                    icon: Icon(Icons.arrow_back_ios, color: kFg, size: 18),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Expanded(
@@ -152,9 +152,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(widget.subject,
-                            style: const TextStyle(color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
+                            style: TextStyle(color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
                         Text('PDF ${_files.length}개 · 누적 문제 $_totalQuiz개 · 정답률 $_avgAccuracyLabel%',
-                            style: const TextStyle(color: kMuted, fontSize: 12)),
+                            style: TextStyle(color: kMuted, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -223,8 +223,8 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       child: TextField(
                         controller: _textController,
                         maxLines: 6,
-                        style: const TextStyle(color: kFg, fontSize: 14),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: kFg, fontSize: 14),
+                        decoration: InputDecoration(
                           hintText: '공부할 내용을 붙여넣거나 직접 입력하세요.',
                           hintStyle: TextStyle(color: kMuted, fontSize: 13),
                           contentPadding: EdgeInsets.all(12),
@@ -244,7 +244,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                         ),
                         alignment: Alignment.center,
                         child: _loading
-                            ? const SizedBox(
+                            ? SizedBox(
                           width: 18, height: 18,
                           child: CircularProgressIndicator(color: kMuted, strokeWidth: 2),
                         )
@@ -263,12 +263,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: kRed.withOpacity(0.3)),
                       ),
-                      child: Text(_error!, style: const TextStyle(color: kRed, fontSize: 12)),
+                      child: Text(_error!, style: TextStyle(color: kRed, fontSize: 12)),
                     ),
                   ],
 
                   const SizedBox(height: 20),
-                  const Text('자료 목록',
+                  Text('자료 목록',
                       style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
 
@@ -301,7 +301,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
             width: 40, height: 40,
             decoration: BoxDecoration(color: kMuted.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
             alignment: Alignment.center,
-            child: const Icon(Icons.picture_as_pdf, color: kMuted, size: 18),
+            child: Icon(Icons.picture_as_pdf, color: kMuted, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -309,20 +309,20 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Expanded(child: Text(filename, style: const TextStyle(color: kFg, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                  Expanded(child: Text(filename, style: TextStyle(color: kFg, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: kMuted.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                    child: const Text('요약 중', style: TextStyle(color: kMuted, fontSize: 10)),
+                    child: Text('요약 중', style: TextStyle(color: kMuted, fontSize: 10)),
                   ),
                 ]),
                 const SizedBox(height: 4),
-                const Text('AI가 분석하고 있어요...', style: TextStyle(color: kMuted, fontSize: 12)),
+                Text('AI가 분석하고 있어요...', style: TextStyle(color: kMuted, fontSize: 12)),
               ],
             ),
           ),
-          const SizedBox(
+          SizedBox(
             width: 16, height: 16,
             child: CircularProgressIndicator(color: kPrimary, strokeWidth: 2),
           ),
@@ -362,7 +362,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               width: 40, height: 40,
               decoration: BoxDecoration(color: kPrimary.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
               alignment: Alignment.center,
-              child: const Icon(Icons.picture_as_pdf, color: kPrimary, size: 18),
+              child: Icon(Icons.picture_as_pdf, color: kPrimary, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -370,21 +370,21 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Expanded(child: Text(m.title, style: const TextStyle(color: kFg, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                    Expanded(child: Text(m.title, style: TextStyle(color: kFg, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(color: kPrimary.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                      child: const Text('요약 완료', style: TextStyle(color: kPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: Text('요약 완료', style: TextStyle(color: kPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ]),
                   const SizedBox(height: 4),
                   Text('$pagesLabel · 문제 ${m.quizCount}개 · 정답률 $accLabel',
-                      style: const TextStyle(color: kMuted, fontSize: 12)),
+                      style: TextStyle(color: kMuted, fontSize: 12)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: kMuted, size: 20),
+            Icon(Icons.chevron_right, color: kMuted, size: 20),
           ],
         ),
       ),

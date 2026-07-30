@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 import 'models/alarm_model.dart';
 import 'models/study_material.dart';
 import 'models/quiz_question.dart';
@@ -31,6 +32,11 @@ void main() async {
 }
 
 // ── 초기 샘플 알람 ──────────────────────────────────────────
+// TODO(실서버 연동): 아래 _initialAlarms/_initialMaterials는 목업 데이터.
+// 나중에 백엔드 알람/학습자료 조회 API가 생기면, MainShell.initState()에서
+// 이 목업 리스트 대신 API 응답으로 _alarms/_materials를 채우도록 바꾸면 됨
+// (지금처럼 List<AlarmModel>/List<StudyMaterial> 형태만 맞춰서 넣어주면
+// HomeScreen/AlarmListScreen/StudyMaterialScreen 등 화면 쪽은 수정 불필요).
 final _initialAlarms = [
   AlarmModel(
     id: 1, time: '06:30', label: '출근 준비',
@@ -108,32 +114,44 @@ class AlarmStudyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AI학습 알람',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: kBg,
-        colorScheme: const ColorScheme.light(
-          surface: kBg,
-          primary: kPrimary,
-          secondary: kPrimaryLight,
-          onSurface: kFg,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: kBg,
-          elevation: 0,
-          iconTheme: IconThemeData(color: kFg),
-          titleTextStyle: TextStyle(
-            color: kFg, fontSize: 20, fontWeight: FontWeight.bold,
+    // ThemeController.isDark가 바뀔 때마다 MaterialApp 전체를 새로 그려서
+    // app_theme.dart의 kBg/kFg 등 getter들이 새 모드 값을 반영하도록 한다.
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.isDark,
+      builder: (context, isDark, _) {
+        return MaterialApp(
+          title: 'AI학습 알람',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            brightness: isDark ? Brightness.dark : Brightness.light,
+            scaffoldBackgroundColor: kBg,
+            colorScheme: ColorScheme(
+              brightness: isDark ? Brightness.dark : Brightness.light,
+              surface: kBg,
+              primary: kPrimary,
+              secondary: kPrimaryLight,
+              onSurface: kFg,
+              onPrimary: Colors.white,
+              onSecondary: Colors.white,
+              error: kRed,
+              onError: Colors.white,
+            ),
+            appBarTheme: AppBarTheme(
+              backgroundColor: kBg,
+              elevation: 0,
+              iconTheme: IconThemeData(color: kFg),
+              titleTextStyle: TextStyle(
+                color: kFg, fontSize: 20, fontWeight: FontWeight.bold,
+              ),
+            ),
+            dividerColor: kBorder,
+            inputDecorationTheme: InputDecorationTheme(
+              labelStyle: TextStyle(color: kMuted),
+            ),
           ),
-        ),
-        dividerColor: kBorder,
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: TextStyle(color: kMuted),
-        ),
-      ),
-      home: const MainShell(),
+          home: const MainShell(),
+        );
+      },
     );
   }
 }
@@ -223,7 +241,7 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: _buildScreen(context),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(top: BorderSide(color: kBorder, width: 1)),
         ),
         child: BottomNavigationBar(
