@@ -5,20 +5,22 @@
 # 실제 Gemini 호출과 응답 파싱은 전부 서버(여기)에서 담당하고,
 # Flutter 클라이언트는 이 서버에 HTTP 요청만 보낸다.
 #
-# 인증(구글/카카오 로그인 + JWT)은 auth.py 라우터로 분리해서 아래에 include했다.
-# users/refresh_tokens 외의 나머지 DB 테이블(material_sets, alarms, questions 등)은
-# 팀원이 이어서 작업 중이다.
+# 인증(구글/카카오 로그인 + JWT)은 팀원이 만든 app/api/auth.py 라우터를 그대로 사용.
+# users/refresh_tokens 포함 전체 DB 스키마(alarms, material_sets, questions 등)는
+# 팀원이 app/models/, app/db/, alembic/로 이미 구성해뒀다.
 import asyncio
 import json
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import google.generativeai as genai
 
-from .auth import router as auth_router
+from app.api.auth import router as auth_router
+from app.core.errors import AppError
 
 # .env 파일에서 환경 변수(API 키) 로드
 load_dotenv()
@@ -30,7 +32,14 @@ genai.configure(api_key=GEMINI_API_KEY)
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 app = FastAPI(title="AlarmStudy AI Server")
-app.include_router(auth_router)
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
+
+
+app.include_router(auth_router, prefix="/api")
 
 
 # ── 요청/응답 스키마 ─────────────────────────────────────────────
@@ -105,7 +114,11 @@ def _parse_response(raw_text: str, subject: str) -> dict:
 
 def _to_readable_error(e: Exception) -> HTTPException:
     """front의 AiService._toReadableException()을 그대로 포팅.
-    Gemini 예외 메시지에 담긴 HTTP 상태코드를 사용자에게 읽기 쉬운 메시지로 변환."""
+    Gemini 예외 메시지에 담긴 HTTP 상태코드를 사용자에게 읽기 쉬운 메시지로 변환.
+
+    참고: 인증 라우터(app/api/auth.py)는 AppError({error_code, message}) 형식을 쓰고
+    여기(/summarize)는 HTTPException({detail})을 쓴다 — 두 응답 형식이 다른 건
+    의도적으로 남겨둔 것이며, 나중에 하나로 통일하면 더 좋다."""
     msg = str(e)
     lower = msg.lower()
     print(f"[AiService] Gemini error: {msg}")

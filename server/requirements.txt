@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
+alembic
 pydantic
 pydantic-settings
 python-dotenv
@@ -11,3 +12,5 @@ google-generativeai
 pyjwt
 google-auth
 httpx
+pytest
+pytest-asyncio
