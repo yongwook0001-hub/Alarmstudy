@@ -20,6 +20,7 @@ from pydantic import BaseModel
 import google.generativeai as genai
 
 from app.api.auth import router as auth_router
+from app.api.song import router as song_router
 from app.core.errors import AppError
 
 # .env 파일에서 환경 변수(API 키) 로드
@@ -40,6 +41,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 app.include_router(auth_router, prefix="/api")
+app.include_router(song_router, prefix="/api")
 
 
 # ── 요청/응답 스키마 ─────────────────────────────────────────────

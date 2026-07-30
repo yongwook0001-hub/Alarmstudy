@@ -64,3 +64,8 @@ app.*.map.json
 .env.*
 !.env.example
 !**/.env.example
+
+# GCP 서비스 계정 키(Vertex AI/Lyria용) — 실수로 server 폴더 안에 두더라도 커밋 안 되게 방어
+*service-account*.json
+*service_account*.json
+server/*-key.json
