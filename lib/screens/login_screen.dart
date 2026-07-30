@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../main.dart';
+import '../services/auth_service.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,11 +15,37 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _pwController = TextEditingController();
 
+  // 로그인 요청 진행 중이면 버튼 중복 탭 방지 + 로딩 표시용
+  bool _isLoading = false;
+
   @override
   void dispose() {
     _emailController.dispose();
     _pwController.dispose();
     super.dispose();
+  }
+
+  // 구글/카카오 공통 처리: AuthService 호출 → 성공하면 메인 화면으로 이동,
+  // 실패하면 화면 아래 SnackBar로 에러 메시지 표시.
+  Future<void> _handleSocialLogin(Future<dynamic> Function() signIn) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await signIn();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('로그인 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -125,6 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 iconBg: const Color(0xFF3C1E1E),
                 iconFg: const Color(0xFFFEE500),
                 label: '카카오로 계속하기',
+                onTap: () => _handleSocialLogin(AuthService.signInWithKakao),
               ),
               const SizedBox(height: 12),
 
@@ -137,7 +166,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 iconFg: Colors.white,
                 label: 'Google로 계속하기',
                 border: kBorder,
+                onTap: () => _handleSocialLogin(AuthService.signInWithGoogle),
               ),
+              if (_isLoading) ...[
+                const SizedBox(height: 16),
+                const Center(child: CircularProgressIndicator()),
+              ],
               const SizedBox(height: 40),
 
               // 회원가입 링크
@@ -199,10 +233,11 @@ class _LoginScreenState extends State<LoginScreen> {
     required Color iconBg,
     required Color iconFg,
     required String label,
+    required VoidCallback onTap,
     Color? border,
   }) {
     return GestureDetector(
-      onTap: () {},
+      onTap: onTap,
       child: Container(
         height: 52,
         width: double.infinity,

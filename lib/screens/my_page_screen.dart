@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import 'login_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
@@ -117,10 +118,14 @@ class MyPageScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     _settingsGroup([
                       _menuItem('계정 정보', onTap: () {}),
-                      _menuItem('로그아웃', onTap: () {
-                        Navigator.push(
+                      _menuItem('로그아웃', onTap: () async {
+                        // 저장된 access/refresh token 삭제 + 서버에도 로그아웃 통보
+                        await AuthService.logout();
+                        if (!context.mounted) return;
+                        Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
                         );
                       }),
                       _menuItem('회원 탈퇴', color: kRed, onTap: () {}),
