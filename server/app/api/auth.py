@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
@@ -14,8 +13,6 @@ from app.db.session import get_db
 from app.models import MaterialSet, RefreshToken, StudyMaterial, User
 from app.services.oauth import OAuthVerificationError, get_oauth_verifier
 from app.services.user import delete_user_s3_objects
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -216,11 +213,9 @@ async def delete_me(
     )
     s3_keys = list(s3_key_result.scalars().all())
 
-    try:
-        await delete_user_s3_objects(s3_keys)
-    except Exception:
-        # 설계: S3 삭제가 실패해도 DB 삭제는 진행한다. 로그만 남긴다.
-        logger.exception("S3 객체 삭제 실패 (user_id=%s) — DB 삭제는 계속 진행", user_id)
+    # delete_user_s3_objects 내부에서 실패를 삼키므로(설계: S3 실패해도 DB 삭제 진행)
+    # 별도 예외처리 없이 그대로 호출한다.
+    await delete_user_s3_objects(s3_keys)
 
     await db.delete(user)  # ON DELETE CASCADE로 연쇄삭제
     await db.commit()

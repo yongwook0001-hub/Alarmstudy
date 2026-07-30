@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import json
 
 from app.api.auth import router as auth_router
+from app.api.materials import router as materials_router
+from app.api.sets import router as sets_router
 from app.core.errors import AppError
 
 # .env 파일에서 환경 변수(API 키) 로드
@@ -26,6 +28,8 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 app.include_router(auth_router, prefix="/api")
+app.include_router(sets_router, prefix="/api")
+app.include_router(materials_router, prefix="/api")
 
 # 요청 데이터 구조 정의
 class SummarizeRequest(BaseModel):
