@@ -4,21 +4,18 @@ from datetime import time as dt_time
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id, get_owned_alarm
 from app.core.constants import BUFFER_TARGET_PER_SET
 from app.core.errors import AppError
 from app.db.session import get_db
-from app.models import Alarm, GenerationJob, MaterialSet, Question, StudyMaterial
+from app.models import Alarm, MaterialSet, Question, StudyMaterial
+from app.services.generation_jobs import insert_job_if_absent
 
 router = APIRouter()
 
-# generation_jobs의 부분 UNIQUE(set_id) 대상과 정확히 같은 조건이어야 ON CONFLICT의
-# 판정 인덱스로 인식된다 (app/models/generation_job.py의 인덱스 정의와 동일한 조건).
-_ACTIVE_JOB_STATUSES_SQL = text("status IN ('pending', 'processing')")
 _ALARM_TIME_PATTERN = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
@@ -89,17 +86,6 @@ def _to_alarm_out(alarm: Alarm, set_title: str | None) -> AlarmOut:
     )
 
 
-async def _insert_generation_job_if_absent(db: AsyncSession, set_id: int, trigger_type: str) -> None:
-    """generation_jobs 부분 UNIQUE(set_id, status IN pending/processing)에 걸리면 조용히
-    스킵한다 — 이미 진행 중인 작업이 있으면 새로 만들 필요가 없다 (설계 확정, 에러 아님)."""
-    stmt = (
-        pg_insert(GenerationJob)
-        .values(set_id=set_id, trigger_type=trigger_type)
-        .on_conflict_do_nothing(index_elements=["set_id"], index_where=_ACTIVE_JOB_STATUSES_SQL)
-    )
-    await db.execute(stmt)
-
-
 async def _insert_job_if_buffer_below_target(db: AsyncSession, set_id: int, trigger_type: str) -> None:
     current_count = await db.scalar(
         select(func.count(Question.id))
@@ -107,7 +93,7 @@ async def _insert_job_if_buffer_below_target(db: AsyncSession, set_id: int, trig
         .where(StudyMaterial.set_id == set_id)
     )
     if (current_count or 0) < BUFFER_TARGET_PER_SET:
-        await _insert_generation_job_if_absent(db, set_id, trigger_type)
+        await insert_job_if_absent(db, set_id, trigger_type)
 
 
 async def _cleanup_buffer_if_orphaned(db: AsyncSession, set_id: int) -> None:
@@ -147,7 +133,7 @@ async def create_alarm(
     await db.refresh(alarm)  # is_enabled 등 DB default를 반영해야 아래 조건을 정확히 판단할 수 있다
 
     if alarm.is_enabled and alarm.set_id is not None:
-        await _insert_generation_job_if_absent(db, alarm.set_id, "alarm_activated")
+        await insert_job_if_absent(db, alarm.set_id, "alarm_activated")
 
     await db.commit()
 
@@ -208,7 +194,7 @@ async def update_alarm(
     if set_id_changed and previous_set_id is not None:
         await _cleanup_buffer_if_orphaned(db, previous_set_id)
     if set_id_changed and alarm.set_id is not None:
-        await _insert_generation_job_if_absent(db, alarm.set_id, "alarm_activated")
+        await insert_job_if_absent(db, alarm.set_id, "alarm_activated")
     if became_enabled and alarm.set_id is not None:
         await _insert_job_if_buffer_below_target(db, alarm.set_id, "reactivated")
 
