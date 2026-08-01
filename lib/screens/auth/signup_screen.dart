@@ -1,0 +1,164 @@
+import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/text_input_field.dart';
+import '../../widgets/primary_button.dart';
+import 'onboarding_screen.dart';
+
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _pwController = TextEditingController();
+  final _pwConfirmController = TextEditingController();
+  bool _agreedToTerms = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _pwController.dispose();
+    _pwConfirmController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kBg,
+      appBar: AppBar(
+        backgroundColor: kBg,
+        elevation: 0,
+        title: Text('회원가입', style: TextStyle(color: kFg)),
+        iconTheme: IconThemeData(color: kFg),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('회원가입',
+                  style: TextStyle(color: kFg, fontSize: 26, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('계정을 만들고\n나만의 학습 알람을 설정해보세요',
+                  style: TextStyle(color: kMuted, fontSize: 14)),
+              const SizedBox(height: 32),
+
+              _label('이름'),
+              const SizedBox(height: 8),
+              TextInputField(
+                controller: _nameController,
+                hint: '홍길동',
+              ),
+              const SizedBox(height: 16),
+
+              _label('이메일'),
+              const SizedBox(height: 8),
+              TextInputField(
+                controller: _emailController,
+                hint: 'example@email.com',
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+
+              _label('비밀번호'),
+              const SizedBox(height: 8),
+              TextInputField(
+                controller: _pwController,
+                hint: '8자 이상 입력',
+                obscure: true,
+              ),
+              const SizedBox(height: 16),
+
+              _label('비밀번호 확인'),
+              const SizedBox(height: 8),
+              TextInputField(
+                controller: _pwConfirmController,
+                hint: '비밀번호 재입력',
+                obscure: true,
+              ),
+              const SizedBox(height: 20),
+
+              // 약관 동의 체크박스
+              Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Checkbox(
+                      value: _agreedToTerms,
+                      activeColor: kPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _agreedToTerms = value ?? false);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('이용약관 및 개인정보 처리방침에 동의합니다',
+                        style: TextStyle(color: kFg, fontSize: 13)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // 가입하기 버튼
+              // 주의: 이메일/비밀번호 회원가입은 백엔드 지원이 없어 실제 계정 생성은 안 됨.
+              // UI 흐름 확인용으로 약관 동의 시 온보딩 화면으로 이동만 처리.
+              PrimaryButton(
+                label: '가입하기',
+                onTap: () {
+                  if (!_agreedToTerms) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('이용약관 및 개인정보 처리방침에 동의해주세요.')),
+                    );
+                    return;
+                  }
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // 로그인 링크
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('이미 계정이 있으신가요? ',
+                      style: TextStyle(color: kMuted, fontSize: 14)),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Text('로그인',
+                        style: TextStyle(color: kPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String text) {
+    return Text(text,
+        style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600));
+  }
+
+}

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../theme/theme_controller.dart';
-import '../services/auth_service.dart';
-import '../services/user_session.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/theme_controller.dart';
+import '../../services/auth_service.dart';
+import '../../services/user_session.dart';
 import 'login_screen.dart';
 import 'notification_settings_screen.dart';
 import 'account_info_screen.dart';
+import '../../widgets/section_title.dart';
+import '../../widgets/settings_group.dart';
 
 class MyPageScreen extends StatelessWidget {
   final String userName;
@@ -116,9 +118,9 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    _sectionTitle('학습 설정'),
+                    const SectionTitle('학습 설정'),
                     const SizedBox(height: 8),
-                    _settingsGroup([
+                    SettingsGroup(items: [
                       _menuItem('알림 설정', onTap: () {
                         Navigator.push(
                           context,
@@ -141,9 +143,9 @@ class MyPageScreen extends StatelessWidget {
                     ]),
                     const SizedBox(height: 20),
 
-                    _sectionTitle('계정'),
+                    const SectionTitle('계정'),
                     const SizedBox(height: 8),
-                    _settingsGroup([
+                    SettingsGroup(items: [
                       _menuItem('계정 정보', onTap: () {
                         Navigator.push(
                           context,
@@ -169,30 +171,6 @@ class MyPageScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text) {
-    return Text(text,
-        style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold));
-  }
-
-  Widget _settingsGroup(List<Widget> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(
-        children: List.generate(items.length, (i) => Column(
-          children: [
-            items[i],
-            if (i < items.length - 1)
-              Divider(height: 1, color: kBorder, indent: 16, endIndent: 16),
-          ],
-        )),
       ),
     );
   }

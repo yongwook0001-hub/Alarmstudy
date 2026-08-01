@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/primary_button.dart';
 import '../main.dart';
 
 /// 회원가입 직후에만 보여주는 온보딩 3화면.
@@ -128,22 +129,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: GestureDetector(
-                onTap: _next,
-                child: Container(
-                  height: 52,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: kPrimary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    isLast ? '시작하기' : '다음',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ),
+              child: PrimaryButton(label: isLast ? '시작하기' : '다음', onTap: _next),
             ),
           ],
         ),

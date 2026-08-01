@@ -17,6 +17,7 @@
 import base64
 import os
 
+import google.auth
 import google.generativeai as genai
 import httpx
 from google.auth.transport.requests import Request as GoogleAuthRequest
@@ -72,15 +73,32 @@ async def generate_lyrics(subject: str, summary: str, key_points: list[str]) -> 
 
 
 def _get_vertex_access_token() -> str:
-    """GOOGLE_APPLICATION_CREDENTIALS(서비스 계정 JSON 키 경로)로 Vertex AI access token 발급."""
+    """Vertex AI access token 발급.
+
+    우선순위:
+    1) GOOGLE_APPLICATION_CREDENTIALS가 설정돼 있으면 그 서비스 계정 JSON 키 사용
+       (조직 정책으로 서비스 계정 키 발급이 막혀 있으면 이 값은 비워두면 됨)
+    2) 없으면 google.auth.default()로 로컬 gcloud 로그인 자격증명(ADC) 사용
+       — 터미널에서 아래 명령 한 번 실행해두면 이 방식이 자동으로 동작함:
+       gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform
+    """
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if not cred_path:
-        raise AppError(
-            status_code=500,
-            error_code="GCP_CREDENTIALS_MISSING",
-            message="GOOGLE_APPLICATION_CREDENTIALS가 설정되지 않았습니다 (Vertex AI 서비스 계정 키 경로).",
-        )
-    credentials = service_account.Credentials.from_service_account_file(cred_path, scopes=_VERTEX_SCOPES)
+    if cred_path:
+        credentials = service_account.Credentials.from_service_account_file(cred_path, scopes=_VERTEX_SCOPES)
+    else:
+        try:
+            credentials, _ = google.auth.default(scopes=_VERTEX_SCOPES)
+        except google.auth.exceptions.DefaultCredentialsError as e:
+            raise AppError(
+                status_code=500,
+                error_code="GCP_CREDENTIALS_MISSING",
+                message=(
+                    "GCP 인증 정보를 찾을 수 없습니다. 터미널에서 "
+                    "'gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform' "
+                    f"을 실행해주세요. ({e})"
+                ),
+            ) from e
+
     credentials.refresh(GoogleAuthRequest())
     return credentials.token
 

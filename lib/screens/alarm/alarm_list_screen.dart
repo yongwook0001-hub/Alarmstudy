@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../models/alarm_model.dart';
-import '../models/study_material.dart';
+import '../../theme/app_theme.dart';
+import '../../models/alarm_model.dart';
+import '../../models/study_material.dart';
 
 class AlarmListScreen extends StatefulWidget {
   final List<AlarmModel> alarms;
   final List<StudyMaterial> materials;
   final VoidCallback onAdd;
+  final void Function(AlarmModel alarm)? onToggle;
   const AlarmListScreen({
     super.key,
     required this.alarms,
     required this.materials,
     required this.onAdd,
+    this.onToggle,
   });
 
   @override
@@ -122,7 +124,10 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
           Switch(
             value: alarm.active,
             activeColor: kPrimary,
-            onChanged: (v) => setState(() => alarm.active = v),
+            onChanged: (v) {
+              setState(() => alarm.active = v);
+              widget.onToggle?.call(alarm);
+            },
           ),
         ],
       ),

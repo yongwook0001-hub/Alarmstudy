@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../models/alarm_model.dart';
-import '../models/study_material.dart';
-import '../services/user_session.dart';
-import 'practice_quiz_select_screen.dart';
+import '../../theme/app_theme.dart';
+import '../../models/alarm_model.dart';
+import '../../models/study_material.dart';
+import '../../services/user_session.dart';
+import '../alarm/practice_quiz_select_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(int) onTabChange;

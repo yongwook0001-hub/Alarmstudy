@@ -1,0 +1,19 @@
+# Cloud Run 배포 전용 Dockerfile.
+# 기존 Dockerfile(로컬 docker-compose용, --reload로 코드 변경 자동 반영)은 건드리지 않고
+# 프로덕션 배포용으로 따로 뺀 파일입니다.
+#
+# 로컬 개발: docker compose up (기존 Dockerfile 사용)
+# 배포:      docker build -f Dockerfile.cloudrun -t <IMAGE> .
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Cloud Run은 컨테이너에 $PORT 환경변수(기본 8080)를 주입하고 그 포트로만 트래픽을 보냄.
+# --reload는 프로덕션에서 불필요한 파일 감시 오버헤드 + 예기치 않은 재시작을 유발할 수 있어 제외.
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}

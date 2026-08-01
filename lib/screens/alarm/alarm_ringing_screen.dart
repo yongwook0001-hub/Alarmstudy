@@ -1,9 +1,11 @@
+import 'package:alarm/alarm.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../models/alarm_model.dart';
-import '../models/study_material.dart';
-import '../models/quiz_question.dart';
-import '../models/quiz_answer_result.dart';
+import '../../theme/app_theme.dart';
+import '../../models/alarm_model.dart';
+import '../../models/study_material.dart';
+import '../../models/quiz_question.dart';
+import '../../models/quiz_answer_result.dart';
+import '../../services/alarm_scheduler.dart';
 import 'motion_mission_screen.dart';
 import 'today_report_screen.dart';
 
@@ -44,6 +46,28 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
       _questions = widget.material!.quizQuestions;
       _quizMode = true;
     }
+  }
+
+  /// 실제로 울리던 네이티브 알람 소리를 멈추고, 반복 요일이 있으면 다음 회차를 재예약한다.
+  /// (practiceMode - 홈 화면 데모 버튼으로 들어온 가상 풀이 - 에서는 실제 알람이 울리고
+  /// 있는 게 아니므로 아무것도 하지 않음)
+  Future<void> _stopAndReschedule() async {
+    if (widget.practiceMode) return;
+    await Alarm.stop(widget.alarm.id);
+    await AlarmScheduler.schedule(widget.alarm);
+  }
+
+  void _stopAlarmAndClose() {
+    _stopAndReschedule();
+    Navigator.pop(context);
+  }
+
+  Future<void> _snooze() async {
+    if (!widget.practiceMode) {
+      await Alarm.stop(widget.alarm.id);
+      await AlarmScheduler.snooze(widget.alarm);
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   void _startQuiz() {
@@ -95,6 +119,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
   }
 
   void _finishQuiz() {
+    _stopAndReschedule(); // 퀴즈를 다 풀었으니 알람 소리 정지 + 다음 회차 예약
     _stopwatch.stop();
     final total = _results.length;
     final wrongCount = _results.where((r) => !r.isCorrect).length;
@@ -158,7 +183,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
             ),
             const Spacer(flex: 1),
             GestureDetector(
-              onTap: () => Navigator.pop(context), // 임시 스누즈 - 실제 재알림 스케줄링은 별도 구현 필요
+              onTap: _snooze,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
@@ -172,7 +197,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: GestureDetector(
-                onTap: widget.material != null ? _startQuiz : () => Navigator.pop(context),
+                onTap: widget.material != null ? _startQuiz : _stopAlarmAndClose,
                 child: Container(
                   height: 56, width: double.infinity,
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -215,7 +240,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                 children: [
                   IconButton(
                     icon: Icon(Icons.close, color: kFg),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _stopAlarmAndClose,
                   ),
                   Text('문제 ${_current + 1} / $total',
                       style: TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),

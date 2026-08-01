@@ -1,0 +1,472 @@
+import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../models/study_material.dart';
+import '../../services/song_service.dart';
+
+class AiSummaryScreen extends StatefulWidget {
+  final StudyMaterial material;
+  final VoidCallback? onDelete;
+
+  const AiSummaryScreen({super.key, required this.material, this.onDelete});
+
+  @override
+  State<AiSummaryScreen> createState() => _AiSummaryScreenState();
+}
+
+class _AiSummaryScreenState extends State<AiSummaryScreen> {
+  bool _generatingSong = false;
+  String? _songError;
+  final _player = AudioPlayer();
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _isPlaying = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        title: Text('삭제할까요?', style: TextStyle(color: kFg)),
+        content: Text('"${widget.material.title}"을(를) 삭제하면 되돌릴 수 없어요.',
+            style: TextStyle(color: kMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('취소', style: TextStyle(color: kMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('삭제', style: TextStyle(color: kRed))),
+        ],
+      ),
+    );
+    if (confirmed == true) widget.onDelete?.call();
+  }
+
+  /// AI 요약을 바탕으로 노래(가사+음원)를 생성해서 기기 로컬 파일로 저장하고
+  /// material.songPath/songLyrics에 반영한다 (같은 StudyMaterial 인스턴스를
+  /// MainShell._materials 리스트에서도 그대로 참조하고 있어서, 여기서 채워두면
+  /// 알람 추가 화면(AlarmAddScreen)에서도 바로 선택 가능해진다).
+  Future<void> _generateSong() async {
+    setState(() {
+      _generatingSong = true;
+      _songError = null;
+    });
+    try {
+      final song = await SongService.generate(
+        subject: widget.material.subject,
+        summary: widget.material.summary,
+        keyPoints: widget.material.keyPoints,
+      );
+      final dir = await getApplicationDocumentsDirectory();
+      final ext = song.mimeType.contains('wav') ? 'wav' : 'mp3';
+      final file = File('${dir.path}/song_material_${widget.material.id}.$ext');
+      await file.writeAsBytes(song.audioBytes);
+
+      setState(() {
+        widget.material.songPath = file.path;
+        widget.material.songLyrics = song.lyrics;
+      });
+    } catch (e) {
+      setState(() => _songError = '노래 생성 실패: $e');
+    } finally {
+      if (mounted) setState(() => _generatingSong = false);
+    }
+  }
+
+  Future<void> _togglePlay() async {
+    final path = widget.material.songPath;
+    if (path == null) return;
+    if (_isPlaying) {
+      await _player.stop();
+      setState(() => _isPlaying = false);
+    } else {
+      await _player.play(DeviceFileSource(path));
+      setState(() => _isPlaying = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final material = widget.material;
+    final hasAttempts = (material.correctCount + material.wrongCount) > 0;
+
+    return Scaffold(
+      backgroundColor: kBg,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: kFg, size: 18),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                if (widget.onDelete != null)
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, color: kMuted),
+                    onPressed: () => _confirmDelete(context),
+                  ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: kPrimary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(material.subject, style: TextStyle(color: kPrimaryLight, fontSize: 12)),
+            ),
+            const SizedBox(height: 10),
+            Text(material.title,
+                style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+
+            // AI 배너
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: kPrimary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kPrimary.withOpacity(0.3)),
+              ),
+              child: Row(children: [
+                Icon(Icons.auto_awesome, color: kPrimary, size: 16),
+                SizedBox(width: 8),
+                Text('AI가 핵심 내용을 자동 요약했습니다', style: TextStyle(color: kPrimaryLight, fontSize: 13)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            _card(
+              title: '요약',
+              child: Text(material.summary,
+                  style: TextStyle(color: kFg, fontSize: 14, height: 1.7)),
+            ),
+            const SizedBox(height: 12),
+
+            _card(
+              title: '핵심 포인트',
+              child: Column(
+                children: material.keyPoints.asMap().entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(children: [
+                    Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        color: kPrimary.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('${e.key + 1}',
+                          style: TextStyle(color: kPrimaryLight, fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(e.value, style: TextStyle(color: kFg, fontSize: 14))),
+                  ]),
+                )).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // AI 학습송 - 요약을 바탕으로 노래(가사+음원) 생성
+            _card(
+              title: 'AI 학습송',
+              child: material.songPath == null
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '이 자료의 요약을 노래로 만들어서 알람음으로 쓸 수 있어요.',
+                          style: TextStyle(color: kMuted, fontSize: 13, height: 1.5),
+                        ),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: _generatingSong ? null : _generateSong,
+                          child: Container(
+                            height: 44,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: _generatingSong ? kPrimary.withOpacity(0.5) : kPrimary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            alignment: Alignment.center,
+                            child: _generatingSong
+                                ? const SizedBox(
+                                    width: 20, height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.music_note, color: Colors.white, size: 18),
+                                      const SizedBox(width: 8),
+                                      const Text('학습자료로 노래 만들기',
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                        if (_songError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(_songError!, style: TextStyle(color: kRed, fontSize: 12, height: 1.4)),
+                        ],
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Icon(Icons.check_circle, color: kGreen, size: 18),
+                          const SizedBox(width: 8),
+                          Text('노래가 만들어졌어요', style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
+                        ]),
+                        if (material.songLyrics != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            material.songLyrics!,
+                            style: TextStyle(color: kMuted, fontSize: 13, height: 1.6),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          GestureDetector(
+                            onTap: _togglePlay,
+                            child: Container(
+                              height: 40,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: kPrimary,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_isPlaying ? Icons.stop : Icons.play_arrow, color: Colors.white, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(_isPlaying ? '정지' : '미리듣기',
+                                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: _generatingSong ? null : _generateSong,
+                            child: Text(
+                              _generatingSong ? '다시 만드는 중...' : '다시 만들기',
+                              style: TextStyle(color: kMuted, fontSize: 13),
+                            ),
+                          ),
+                        ]),
+                        Text(
+                          '알람 추가 화면의 "알람음"에서 이 노래를 선택할 수 있어요.',
+                          style: TextStyle(color: kMuted, fontSize: 11.5, height: 1.4),
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 12),
+
+            // 문제 통계 분석 - 실제 풀이 기록이 있을 때만 표시
+            if (hasAttempts) ...[
+              _card(
+                title: '문제 통계 분석',
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _accuracyDonut(material.accuracy ?? 0),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _statRow('푼 문제', '${material.correctCount + material.wrongCount}개', kFg),
+                          const SizedBox(height: 8),
+                          _statRow('맞힌 문제', '${material.correctCount}개', kPrimary),
+                          const SizedBox(height: 8),
+                          _statRow('틀린 문제', '${material.wrongCount}개', kRed),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              if (material.topicAccuracy.isNotEmpty)
+                _card(
+                  title: '주제별 정답률',
+                  child: Column(
+                    children: material.topicAccuracy.entries.map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(e.key, style: TextStyle(color: kFg, fontSize: 13)),
+                              Text('${e.value.round()}%', style: TextStyle(color: kMuted, fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: e.value / 100,
+                              minHeight: 8,
+                              backgroundColor: kBorder,
+                              valueColor: AlwaysStoppedAnimation(kPrimary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              const SizedBox(height: 12),
+            ] else
+              _card(
+                title: '문제 통계 분석',
+                child: Text('아직 이 자료로 퀴즈를 푼 기록이 없어요.\n알람이 울릴 때 퀴즈를 풀면 여기에 통계가 쌓여요.',
+                    style: TextStyle(color: kMuted, fontSize: 13, height: 1.5)),
+              ),
+
+            // 약점 피드백
+            if (material.weakestTopic != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: kAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kAccent.withOpacity(0.3)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.lightbulb_outline, color: kAccent, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${material.weakestTopic} 파트가 약해요. 다음 퀴즈는 ${material.weakestTopic} 위주로 출제할게요.',
+                      style: TextStyle(color: kMuted, fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+
+            const SizedBox(height: 20),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _statRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: kMuted, fontSize: 13)),
+        Text(value, style: TextStyle(color: valueColor, fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _accuracyDonut(double accuracy) {
+    return SizedBox(
+      width: 90,
+      height: 90,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(90, 90),
+            painter: _DonutPainter(percentage: accuracy),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${accuracy.round()}%',
+                  style: TextStyle(color: kFg, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('정답률', style: TextStyle(color: kMuted, fontSize: 10)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _card({required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kCard, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: TextStyle(color: kMuted, fontSize: 13)),
+        const SizedBox(height: 12),
+        child,
+      ]),
+    );
+  }
+}
+
+/// 정답률 도넛 차트 - 별도 차트 패키지 없이 CustomPainter로 직접 그림
+class _DonutPainter extends CustomPainter {
+  final double percentage; // 0~100
+
+  _DonutPainter({required this.percentage});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 10.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    final trackPaint = Paint()
+      ..color = kBorder
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    final progressPaint = Paint()
+      ..color = kPrimary
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final sweepAngle = 2 * 3.141592653589793 * (percentage / 100);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.141592653589793 / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
+      oldDelegate.percentage != percentage;
+}

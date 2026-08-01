@@ -1,7 +1,10 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/alarm_model.dart';
+import '../models/alarm_sound.dart';
 import '../models/study_material.dart';
+import '../widgets/primary_button.dart';
 
 class AlarmAddScreen extends StatefulWidget {
   final List<StudyMaterial> materials;
@@ -11,17 +14,31 @@ class AlarmAddScreen extends StatefulWidget {
   State<AlarmAddScreen> createState() => _AlarmAddScreenState();
 }
 
+/// 알람음 선택 바텀시트에서 고른 결과 (기본 알람음 또는 AI 생성 노래).
+class _SoundChoice {
+  final String soundId;
+  final String? customPath;
+  final String label;
+  const _SoundChoice({required this.soundId, required this.customPath, required this.label});
+}
+
 class _AlarmAddScreenState extends State<AlarmAddScreen> {
   TimeOfDay _time = const TimeOfDay(hour: 7, minute: 0);
   final _labelController = TextEditingController();
   final _days = ['일', '월', '화', '수', '목', '금', '토'];
   final Set<String> _selectedDays = {'월', '화', '수', '목', '금'};
   StudyMaterial? _selectedMaterial;
-  String _alarmSound = '기본 알람음';
+
+  String _soundId = 'default';
+  String? _customSoundPath;
+  String _soundLabel = kDefaultAlarmSounds.first.label;
+
+  final _previewPlayer = AudioPlayer();
 
   @override
   void dispose() {
     _labelController.dispose();
+    _previewPlayer.dispose();
     super.dispose();
   }
 
@@ -34,32 +51,112 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
       days: _selectedDays.toList(),
       quizSubject: _selectedMaterial?.subject ?? '없음',
       materialId: _selectedMaterial?.id,
+      soundId: _soundId,
+      customSoundPath: _customSoundPath,
     );
     Navigator.pop(context, alarm);
   }
 
+  /// 학습자료 선택이 바뀌면, 이전에 골라둔 "AI 생성 노래" 알람음이 다른 자료 것일 수
+  /// 있으니 기본 알람음으로 되돌린다 (자료 자체를 선택 해제한 경우도 동일하게 처리).
+  void _onMaterialSelected(StudyMaterial? material) {
+    setState(() {
+      _selectedMaterial = material;
+      if (_soundId == kCustomSongSoundId) {
+        _soundId = 'default';
+        _customSoundPath = null;
+        _soundLabel = kDefaultAlarmSounds.first.label;
+      }
+    });
+  }
+
   Future<void> _pickSound() async {
-    const options = ['기본 알람음', '차임벨', '클래식', '펄스'];
-    final selected = await showModalBottomSheet<String>(
+    final material = _selectedMaterial;
+    String? playingId;
+
+    final result = await showModalBottomSheet<_SoundChoice>(
       context: context,
       backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options
-              .map((o) => ListTile(
-            title: Text(o, style: TextStyle(color: kFg)),
-            trailing: o == _alarmSound ? Icon(Icons.check, color: kPrimary) : null,
-            onTap: () => Navigator.pop(context, o),
-          ))
-              .toList(),
-        ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          Future<void> preview(String id, {String? assetPath, String? filePath}) async {
+            if (playingId == id) {
+              await _previewPlayer.stop();
+              setSheetState(() => playingId = null);
+              return;
+            }
+            await _previewPlayer.stop();
+            if (assetPath != null) {
+              await _previewPlayer.play(AssetSource(assetPath.replaceFirst('assets/', '')));
+            } else if (filePath != null) {
+              await _previewPlayer.play(DeviceFileSource(filePath));
+            }
+            setSheetState(() => playingId = id);
+          }
+
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Text('알람음 선택', style: TextStyle(color: kMuted, fontSize: 13)),
+                ),
+                ...kDefaultAlarmSounds.map((s) => ListTile(
+                      leading: IconButton(
+                        icon: Icon(
+                          playingId == s.id ? Icons.stop_circle : Icons.play_circle_outline,
+                          color: kPrimary,
+                        ),
+                        onPressed: () => preview(s.id, assetPath: s.assetPath),
+                      ),
+                      title: Text(s.label, style: TextStyle(color: kFg)),
+                      trailing: _soundId == s.id ? Icon(Icons.check, color: kPrimary) : null,
+                      onTap: () => Navigator.pop(
+                        sheetContext,
+                        _SoundChoice(soundId: s.id, customPath: null, label: s.label),
+                      ),
+                    )),
+                if (material?.songPath != null)
+                  ListTile(
+                    leading: IconButton(
+                      icon: Icon(
+                        playingId == kCustomSongSoundId ? Icons.stop_circle : Icons.play_circle_outline,
+                        color: kPrimary,
+                      ),
+                      onPressed: () => preview(kCustomSongSoundId, filePath: material!.songPath!),
+                    ),
+                    title: Text('🎵 ${material!.title} 노래 (AI 생성)', style: TextStyle(color: kFg)),
+                    trailing: _soundId == kCustomSongSoundId ? Icon(Icons.check, color: kPrimary) : null,
+                    onTap: () => Navigator.pop(
+                      sheetContext,
+                      _SoundChoice(
+                        soundId: kCustomSongSoundId,
+                        customPath: material.songPath,
+                        label: '${material.title} 노래',
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
       ),
     );
-    if (selected != null) setState(() => _alarmSound = selected);
+
+    await _previewPlayer.stop();
+
+    if (result != null) {
+      setState(() {
+        _soundId = result.soundId;
+        _customSoundPath = result.customPath;
+        _soundLabel = result.label;
+      });
+    }
   }
 
   @override
@@ -211,7 +308,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                             Text('알람음', style: TextStyle(color: kFg, fontSize: 14)),
                             Row(
                               children: [
-                                Text(_alarmSound, style: TextStyle(color: kMuted, fontSize: 14)),
+                                Text(_soundLabel, style: TextStyle(color: kMuted, fontSize: 14)),
                                 const SizedBox(width: 4),
                                 Icon(Icons.chevron_right, color: kMuted, size: 20),
                               ],
@@ -223,21 +320,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     const SizedBox(height: 28),
 
                     // 저장하기 버튼
-                    GestureDetector(
-                      onTap: _save,
-                      child: Container(
-                        height: 52,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: kPrimary,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text('저장하기',
-                            style: TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      ),
-                    ),
+                    PrimaryButton(label: '저장하기', onTap: _save),
                   ],
                 ),
               ),
@@ -268,7 +351,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
         (_selectedMaterial == null) == (material == null);
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedMaterial = material),
+      onTap: () => _onMaterialSelected(material),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

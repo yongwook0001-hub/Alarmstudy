@@ -20,6 +20,10 @@ dependencies:
   google_sign_in: ^7.2.0          # 구글 로그인
   kakao_flutter_sdk_user: ^1.9.7  # 카카오 로그인 (User API)
   flutter_secure_storage: ^9.2.2  # 로그인 토큰 안전하게 저장
+  path_provider: ^2.1.4           # AI가 생성한 노래(오디오)를 로컬 파일로 저장
+  audioplayers: ^6.1.0            # 알람음/생성된 노래 미리듣기 재생
+  alarm: ^5.5.0                   # 실제 기기 알람 예약 (앱이 꺼져있어도 설정 시간에 울림)
+  permission_handler: ^11.3.1     # Android 12+ 정확한 알람(SCHEDULE_EXACT_ALARM) 권한 요청
 
 
 dev_dependencies:
@@ -33,4 +37,5 @@ flutter:
 
   assets:
     - .env
+    - assets/sounds/
 

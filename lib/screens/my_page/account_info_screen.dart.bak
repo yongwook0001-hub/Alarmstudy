@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/user_session.dart';
+import '../widgets/settings_group.dart';
 
 /// 계정 정보 화면 — 로그인된 사용자 정보를 보여준다.
 ///
@@ -71,7 +72,7 @@ class AccountInfoScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  _infoGroup([
+                  SettingsGroup(items: [
                     _infoRow('이름', name),
                     _infoRow('이메일', email),
                     _infoRow('로그인 방식', provider == null ? '-' : _providerLabel(provider)),
@@ -86,25 +87,6 @@ class AccountInfoScreen extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _infoGroup(List<Widget> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(
-        children: List.generate(items.length, (i) => Column(
-          children: [
-            items[i],
-            if (i < items.length - 1)
-              Divider(height: 1, color: kBorder, indent: 16, endIndent: 16),
-          ],
-        )),
       ),
     );
   }

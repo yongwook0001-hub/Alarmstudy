@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/section_title.dart';
+import '../../widgets/settings_group.dart';
 
 /// 알림 설정 화면.
 ///
@@ -39,9 +41,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _sectionTitle('알람'),
+            const SectionTitle('알람'),
             const SizedBox(height: 8),
-            _group([
+            SettingsGroup(items: [
               _switchRow(
                 '알람 리마인더',
                 '알람 울리기 10분 전에 미리 알려줘요',
@@ -62,9 +64,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               ),
             ]),
             const SizedBox(height: 20),
-            _sectionTitle('기타'),
+            const SectionTitle('기타'),
             const SizedBox(height: 8),
-            _group([
+            SettingsGroup(items: [
               _switchRow(
                 '주간 리포트',
                 '한 주 학습 통계를 요약해서 보내줘요',
@@ -80,29 +82,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             ]),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text) {
-    return Text(text, style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold));
-  }
-
-  Widget _group(List<Widget> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(
-        children: List.generate(items.length, (i) => Column(
-          children: [
-            items[i],
-            if (i < items.length - 1)
-              Divider(height: 1, color: kBorder, indent: 16, endIndent: 16),
-          ],
-        )),
       ),
     );
   }

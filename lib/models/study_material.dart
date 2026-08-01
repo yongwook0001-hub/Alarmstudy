@@ -25,6 +25,12 @@ class StudyMaterial {
   Map<String, int> topicCorrect;
   Map<String, int> topicWrong;
 
+  // AI가 이 자료의 요약으로 만들어준 노래 - 없으면 아직 생성 안 한 것.
+  // songPath는 기기 로컬에 저장된 오디오 파일의 절대경로(song_service.dart 참고),
+  // songLyrics는 그 노래의 가사. 둘 다 mutable - "노래 만들기" 버튼 누른 시점에 채워짐.
+  String? songPath;
+  String? songLyrics;
+
   StudyMaterial({
     required this.id,
     required this.subject,
@@ -39,6 +45,8 @@ class StudyMaterial {
     this.wrongCount = 0,
     Map<String, int>? topicCorrect,
     Map<String, int>? topicWrong,
+    this.songPath,
+    this.songLyrics,
   })  : topicCorrect = topicCorrect ?? {},
         topicWrong = topicWrong ?? {};
 

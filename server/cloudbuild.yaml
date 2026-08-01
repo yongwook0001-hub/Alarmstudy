@@ -1,0 +1,14 @@
+# Cloud Run 배포용 이미지 빌드 설정.
+# Dockerfile 이름이 기본값이 아니라 Dockerfile.cloudrun이라 -f 옵션이 필요해서
+# `gcloud builds submit --tag ...` 대신 이 config 파일을 사용한다.
+#
+# 사용법 (server 폴더 안에서):
+#   gcloud builds submit --config=cloudbuild.yaml \
+#     --substitutions=_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/api
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'Dockerfile.cloudrun', '-t', '${_IMAGE}', '.']
+
+images:
+  - '${_IMAGE}'

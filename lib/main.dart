@@ -1,16 +1,19 @@
+import 'dart:async';
+import 'package:alarm/alarm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'models/alarm_model.dart';
 import 'models/study_material.dart';
-import 'models/quiz_question.dart';
-import 'screens/home_screen.dart';
-import 'screens/alarm_list_screen.dart';
-import 'screens/alarm_add_screen.dart';
-import 'screens/study_material_screen.dart';
-import 'screens/alarm_ringing_screen.dart';
-import 'screens/my_page_screen.dart';
+import 'screens/home/home_screen.dart';
+import 'screens/alarm/alarm_list_screen.dart';
+import 'screens/alarm/alarm_add_screen.dart';
+import 'screens/study_material/study_material_screen.dart';
+import 'screens/alarm/alarm_ringing_screen.dart';
+import 'screens/my_page/my_page_screen.dart';
+import 'services/alarm_scheduler.dart';
+import 'state/app_data.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
@@ -21,6 +24,9 @@ void main() async {
   // 카카오 SDK 초기화 — .env의 KAKAO_NATIVE_APP_KEY 사용
   KakaoSdk.init(nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY']);
 
+  // 실제 기기 알람(백그라운드/종료 상태에서도 설정 시간에 울림) 초기화
+  await AlarmScheduler.init();
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -30,84 +36,6 @@ void main() async {
 
   runApp(const AlarmStudyApp());
 }
-
-// ── 초기 샘플 알람 ──────────────────────────────────────────
-// TODO(실서버 연동): 아래 _initialAlarms/_initialMaterials는 목업 데이터.
-// 나중에 백엔드 알람/학습자료 조회 API가 생기면, MainShell.initState()에서
-// 이 목업 리스트 대신 API 응답으로 _alarms/_materials를 채우도록 바꾸면 됨
-// (지금처럼 List<AlarmModel>/List<StudyMaterial> 형태만 맞춰서 넣어주면
-// HomeScreen/AlarmListScreen/StudyMaterialScreen 등 화면 쪽은 수정 불필요).
-final _initialAlarms = [
-  AlarmModel(
-    id: 1, time: '06:30', label: '출근 준비',
-    active: true, days: ['월', '화', '수', '목', '금'],
-    quizSubject: '한국사', materialId: 1,
-  ),
-  AlarmModel(
-    id: 2, time: '08:00', label: '주말 공부',
-    active: false, days: ['토', '일'],
-    quizSubject: '영어', materialId: 2,
-  ),
-];
-
-// ── 초기 샘플 학습자료 (퀴즈 포함) ────────────────────────────
-final _initialMaterials = [
-  StudyMaterial(
-    id: 1, subject: '한국사', title: '조선시대 붕당정치',
-    date: '2026-06-20',
-    summary: '붕당정치는 16세기 중반 사림파 집권 이후 동인·서인으로 분열되었고, 이후 노론·소론·남인·북인으로 세분화되었습니다.',
-    keyPoints: ['동인·서인 분열 (1575)', '예송논쟁으로 남인·서인 대립', '환국정치 - 숙종 시기 권력 교체'],
-    quizCount: 3,
-    quizQuestions: [
-      QuizQuestion(
-        question: '1575년 동인과 서인 분열의 직접적 원인은?',
-        options: ['이조전랑 임명 문제', '임진왜란 발발', '예송논쟁', '인조반정'],
-        correctIndex: 0,
-      ),
-      QuizQuestion(
-        question: '예송논쟁에서 대립한 두 붕당은?',
-        options: ['동인 vs 서인', '남인 vs 서인', '노론 vs 소론', '북인 vs 남인'],
-        correctIndex: 1,
-      ),
-      QuizQuestion(
-        question: '숙종 시기 권력이 붕당 간에 급격히 교체된 정치 형태를?',
-        options: ['탕평책', '환국정치', '세도정치', '훈구정치'],
-        correctIndex: 1,
-      ),
-    ],
-  ),
-  StudyMaterial(
-    id: 2, subject: '영어', title: '관계대명사 완전정복',
-    date: '2026-06-19',
-    summary: '관계대명사는 두 문장을 연결하며 명사를 수식하는 절을 만든다. who·which·whose·that이 대표적이다.',
-    keyPoints: ['who/whom - 사람', 'which - 사물', 'whose - 소유격'],
-    quizCount: 3,
-    quizQuestions: [
-      QuizQuestion(
-        question: '사람을 선행사로 받는 관계대명사는?',
-        options: ['which', 'whose', 'who', 'that만 가능'],
-        correctIndex: 2,
-      ),
-      QuizQuestion(
-        question: '소유격 관계대명사는?',
-        options: ['who', 'whom', 'which', 'whose'],
-        correctIndex: 3,
-      ),
-      QuizQuestion(
-        question: '사람과 사물 모두에 쓸 수 있는 관계대명사는?',
-        options: ['who', 'which', 'whose', 'that'],
-        correctIndex: 3,
-      ),
-    ],
-  ),
-];
-
-// QuizQuestion은 더 이상 샘플로 사용하지 않음 — Gemini가 실시간 생성
-final sampleQuiz = QuizQuestion(
-  question: '(데모용) 이 문제는 사용되지 않습니다.',
-  options: ['', '', '', ''],
-  correctIndex: 0,
-);
 
 class AlarmStudyApp extends StatelessWidget {
   const AlarmStudyApp({super.key});
@@ -166,23 +94,55 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
 
-  // 학습자료 목록 — AI 요약 결과가 여기에 추가됨
-  final List<StudyMaterial> _materials = List.from(_initialMaterials);
+  // 알람/학습자료 목록 + 실제 기기 알람 예약 로직은 AppData 하나에 모아둠
+  // (state/app_data.dart 참고). 여기서는 언제 다시 그릴지(setState)만 신경 쓴다.
+  final _appData = AppData();
 
-  // 알람 목록
-  final List<AlarmModel> _alarms = List.from(_initialAlarms);
+  StreamSubscription<AlarmSet>? _ringSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // 앱 시작 시: 정확한 알람 권한 요청 + 활성 알람 전부 "다음 발생 시각" 기준으로 재예약.
+    // (기기 재부팅/장시간 미실행 후에도 스케줄이 최신 상태를 유지하도록)
+    AlarmScheduler.requestExactAlarmPermission();
+    _appData.rescheduleAll();
+
+    // 실제로 알람이 울리는 시점(앱이 켜져있는 동안 포함)을 감지해서
+    // AlarmRingingScreen(퀴즈 풀어야 꺼지는 화면)으로 이동시킴.
+    _ringSub = Alarm.ringing.listen(_onAlarmRinging);
+  }
+
+  @override
+  void dispose() {
+    _ringSub?.cancel();
+    super.dispose();
+  }
+
+  void _onAlarmRinging(AlarmSet alarmSet) {
+    for (final settings in alarmSet.alarms) {
+      final alarm = _appData.findAlarm(settings.id);
+      if (alarm == null) continue;
+
+      final material = _appData.findMaterial(alarm.materialId);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AlarmRingingScreen(alarm: alarm, material: material, streakDays: 7),
+        ),
+      );
+    }
+  }
 
   // 학습자료가 추가될 때 목록 앞에 삽입
   void _onMaterialAdded(StudyMaterial material) {
-    setState(() => _materials.insert(0, material));
+    setState(() => _appData.addMaterial(material));
   }
-  // 1) _MainShellState 클래스 안에 메서드 하나 추가
-  //    (_onMaterialAdded 메서드 바로 아래에 이어서 넣으면 됩니다)
-  // ─────────────────────────────────────────────────────────
 
   // 학습자료 삭제 (AiSummaryScreen에서 휴지통 아이콘 눌렀을 때 호출됨)
   void _onMaterialDeleted(int id) {
-    setState(() => _materials.removeWhere((m) => m.id == id));
+    setState(() => _appData.deleteMaterial(id));
   }
 
   Widget _buildScreen(BuildContext context) {
@@ -190,8 +150,8 @@ class _MainShellState extends State<MainShell> {
       case 0:
         return HomeScreen(
           onTabChange: (i) => setState(() => _tab = i.clamp(0, 3)),
-          alarms: _alarms,
-          materials: _materials,
+          alarms: _appData.alarms,
+          materials: _appData.materials,
           onDemoAlarm: (alarm, material) => Navigator.push(
             context,
             MaterialPageRoute(
@@ -202,22 +162,23 @@ class _MainShellState extends State<MainShell> {
 
       case 1:
         return AlarmListScreen(
-          alarms: _alarms,
-          materials: _materials,
+          alarms: _appData.alarms,
+          materials: _appData.materials,
           onAdd: () async {
             final alarm = await Navigator.push<AlarmModel>(
               context,
               MaterialPageRoute(
-                builder: (_) => AlarmAddScreen(materials: _materials),
+                builder: (_) => AlarmAddScreen(materials: _appData.materials),
               ),
             );
-            if (alarm != null) setState(() => _alarms.add(alarm));
+            if (alarm != null) setState(() => _appData.addAlarm(alarm));
           },
+          onToggle: (alarm) => AlarmScheduler.schedule(alarm),
         );
 
       case 2:
         return StudyMaterialScreen(
-          materials: _materials,
+          materials: _appData.materials,
           onMaterialAdded: _onMaterialAdded,
           onMaterialDeleted: _onMaterialDeleted,
         );
@@ -229,8 +190,8 @@ class _MainShellState extends State<MainShell> {
       default:
         return HomeScreen(
           onTabChange: (_) {},
-          alarms: _alarms,
-          materials: _materials,
+          alarms: _appData.alarms,
+          materials: _appData.materials,
           onDemoAlarm: (_, __) {},
         );
     }

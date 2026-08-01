@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/text_input_field.dart';
+import '../widgets/primary_button.dart';
 import 'onboarding_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -54,7 +56,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
               _label('이름'),
               const SizedBox(height: 8),
-              _inputField(
+              TextInputField(
                 controller: _nameController,
                 hint: '홍길동',
               ),
@@ -62,7 +64,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
               _label('이메일'),
               const SizedBox(height: 8),
-              _inputField(
+              TextInputField(
                 controller: _emailController,
                 hint: 'example@email.com',
                 keyboardType: TextInputType.emailAddress,
@@ -71,7 +73,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
               _label('비밀번호'),
               const SizedBox(height: 8),
-              _inputField(
+              TextInputField(
                 controller: _pwController,
                 hint: '8자 이상 입력',
                 obscure: true,
@@ -80,7 +82,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
               _label('비밀번호 확인'),
               const SizedBox(height: 8),
-              _inputField(
+              TextInputField(
                 controller: _pwConfirmController,
                 hint: '비밀번호 재입력',
                 obscure: true,
@@ -116,7 +118,8 @@ class _SignupScreenState extends State<SignupScreen> {
               // 가입하기 버튼
               // 주의: 이메일/비밀번호 회원가입은 백엔드 지원이 없어 실제 계정 생성은 안 됨.
               // UI 흐름 확인용으로 약관 동의 시 온보딩 화면으로 이동만 처리.
-              GestureDetector(
+              PrimaryButton(
+                label: '가입하기',
                 onTap: () {
                   if (!_agreedToTerms) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -129,18 +132,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     MaterialPageRoute(builder: (_) => const OnboardingScreen()),
                   );
                 },
-                child: Container(
-                  height: 52,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: kPrimary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text('가입하기',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
               ),
               const SizedBox(height: 24),
 
@@ -170,30 +161,4 @@ class _SignupScreenState extends State<SignupScreen> {
         style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600));
   }
 
-  Widget _inputField({
-    required TextEditingController controller,
-    required String hint,
-    bool obscure = false,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        style: TextStyle(color: kFg),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: kMuted),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          border: InputBorder.none,
-        ),
-      ),
-    );
-  }
 }

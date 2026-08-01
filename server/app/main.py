@@ -19,12 +19,15 @@ from pydantic import BaseModel
 
 import google.generativeai as genai
 
+# .env 파일에서 환경 변수(API 키) 로드
+# 주의: 아래 app.api.song import가 이 줄보다 먼저 실행되면 song.py의
+# `GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")`(모듈 로드 시점에 딱 한 번 평가됨)가
+# .env 로드 전이라 항상 빈 값이 됨 — 그래서 load_dotenv()를 import들보다 위로 옮김.
+load_dotenv()
+
 from app.api.auth import router as auth_router
 from app.api.song import router as song_router
 from app.core.errors import AppError
-
-# .env 파일에서 환경 변수(API 키) 로드
-load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
