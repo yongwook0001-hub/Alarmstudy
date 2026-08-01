@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.core.security import TokenExpiredError, TokenInvalidError, decode_access_token
 from app.db.session import get_db
-from app.models import Alarm, MaterialSet, StudyMaterial
+from app.models import Alarm, AlarmSession, MaterialSet, StudyMaterial
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -73,3 +73,15 @@ async def get_owned_alarm(
     if alarm is None or alarm.user_id != user_id:
         raise AppError(404, "ALARM_NOT_FOUND", "알람을 찾을 수 없습니다.")
     return alarm
+
+
+async def get_owned_session(
+    session_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> AlarmSession:
+    """경로의 session_id가 현재 유저 소유인지 확인한다 (타인 소유·부존재 모두 404로 은닉)."""
+    session = await db.get(AlarmSession, session_id)
+    if session is None or session.user_id != user_id:
+        raise AppError(404, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다.")
+    return session

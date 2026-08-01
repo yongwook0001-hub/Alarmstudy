@@ -25,8 +25,10 @@ from google.genai import types
 from app.api.alarms import router as alarms_router
 from app.api.auth import router as auth_router
 from app.api.materials import router as materials_router
+from app.api.sessions import router as sessions_router
 from app.api.sets import router as sets_router
 from app.api.song import router as song_router
+from app.api.stats import router as stats_router
 from app.core.errors import AppError
 from app.db.session import AsyncSessionLocal
 from app.workers import generation_worker
@@ -70,6 +72,8 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(sets_router, prefix="/api")
 app.include_router(materials_router, prefix="/api")
 app.include_router(alarms_router, prefix="/api")
+app.include_router(sessions_router, prefix="/api")
+app.include_router(stats_router, prefix="/api")
 app.include_router(song_router, prefix="/api")
 
 
