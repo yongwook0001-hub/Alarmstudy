@@ -3,6 +3,7 @@ import logging
 from typing import Protocol
 
 import pdfplumber
+from google import genai
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
@@ -22,7 +23,7 @@ class SummaryGenerator(Protocol):
 
 
 class GeminiSummaryGenerator:
-    """google-generativeai로 요약을 생성한다. app/services/oauth.py의 provider verifier와
+    """google-genai로 요약을 생성한다. app/services/oauth.py의 provider verifier와
     동일한 패턴 — Protocol을 만족하는 얇은 래퍼라 테스트에서 통째로 교체(mock) 가능하다."""
 
     _MAX_EXCERPT_CHARS = 20_000
@@ -32,21 +33,15 @@ class GeminiSummaryGenerator:
         self._model_name = model_name
 
     async def generate(self, text: str) -> str:
-        def _call() -> str:
-            import google.generativeai as genai
-
-            genai.configure(api_key=self._api_key)
-            model = genai.GenerativeModel(self._model_name)
-            excerpt = text[: self._MAX_EXCERPT_CHARS]
-            prompt = (
-                "다음 학습 자료를 3~4문장으로 한국어로 요약해줘. 요약문만 출력하고 "
-                f"다른 말은 하지 마.\n\n{excerpt}"
-            )
-            response = model.generate_content(prompt)
-            return response.text.strip()
-
+        client = genai.Client(api_key=self._api_key)
+        excerpt = text[: self._MAX_EXCERPT_CHARS]
+        prompt = (
+            "다음 학습 자료를 3~4문장으로 한국어로 요약해줘. 요약문만 출력하고 "
+            f"다른 말은 하지 마.\n\n{excerpt}"
+        )
         try:
-            return await run_in_threadpool(_call)
+            response = await client.aio.models.generate_content(model=self._model_name, contents=prompt)
+            return (response.text or "").strip()
         except Exception as exc:
             raise SummaryGenerationError(str(exc)) from exc
 
