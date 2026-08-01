@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 백엔드(FastAPI) 서버와 통신하기 위해 필요 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="alarm_study"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffic: 개발용 로컬 FastAPI 서버(http://10.0.2.2:8000)가
+             HTTPS가 아니므로 필요. 운영 배포 시 서버에 HTTPS를 적용하면 제거할 것. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -17,14 +22,28 @@
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"
+                />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- 카카오 로그인 리다이렉트 처리용. scheme의 ${KAKAO_NATIVE_APP_KEY}는
+             실제 네이티브 앱 키 문자열로 바꿔야 함 (예: kakao311198fcb3675a854542b46daa87070c) -->
+        <activity
+            android:name="com.kakao.sdk.flutter.AuthCodeCustomTabsActivity"
+            android:exported="true">
+            <intent-filter android:label="flutter_web_auth">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kakao311198fcb3675a854542b46daa87070c" android:host="oauth" />
+            </intent-filter>
+        </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

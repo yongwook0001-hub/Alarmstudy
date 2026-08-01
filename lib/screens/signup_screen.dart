@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'onboarding_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -13,6 +14,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _pwController = TextEditingController();
   final _pwConfirmController = TextEditingController();
+  bool _agreedToTerms = false;
 
   @override
   void dispose() {
@@ -28,7 +30,10 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       backgroundColor: kBg,
       appBar: AppBar(
-        title: const Text('회원가입'),
+        backgroundColor: kBg,
+        elevation: 0,
+        title: Text('회원가입', style: TextStyle(color: kFg)),
+        iconTheme: IconThemeData(color: kFg),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.pop(context),
@@ -40,10 +45,10 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('시작해볼까요? 👋',
+              Text('회원가입',
                   style: TextStyle(color: kFg, fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text('정보를 입력하고 AI학습 알람을 시작하세요',
+              Text('계정을 만들고\n나만의 학습 알람을 설정해보세요',
                   style: TextStyle(color: kMuted, fontSize: 14)),
               const SizedBox(height: 32),
 
@@ -52,7 +57,6 @@ class _SignupScreenState extends State<SignupScreen> {
               _inputField(
                 controller: _nameController,
                 hint: '홍길동',
-                icon: Icons.person_outline,
               ),
               const SizedBox(height: 16),
 
@@ -61,7 +65,6 @@ class _SignupScreenState extends State<SignupScreen> {
               _inputField(
                 controller: _emailController,
                 hint: 'example@email.com',
-                icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
@@ -71,7 +74,6 @@ class _SignupScreenState extends State<SignupScreen> {
               _inputField(
                 controller: _pwController,
                 hint: '8자 이상 입력',
-                icon: Icons.lock_outline,
                 obscure: true,
               ),
               const SizedBox(height: 16),
@@ -81,68 +83,77 @@ class _SignupScreenState extends State<SignupScreen> {
               _inputField(
                 controller: _pwConfirmController,
                 hint: '비밀번호 재입력',
-                icon: Icons.lock_outline,
                 obscure: true,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
-              // 회원가입 버튼
+              // 약관 동의 체크박스
+              Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Checkbox(
+                      value: _agreedToTerms,
+                      activeColor: kPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _agreedToTerms = value ?? false);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('이용약관 및 개인정보 처리방침에 동의합니다',
+                        style: TextStyle(color: kFg, fontSize: 13)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // 가입하기 버튼
+              // 주의: 이메일/비밀번호 회원가입은 백엔드 지원이 없어 실제 계정 생성은 안 됨.
+              // UI 흐름 확인용으로 약관 동의 시 온보딩 화면으로 이동만 처리.
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  if (!_agreedToTerms) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('이용약관 및 개인정보 처리방침에 동의해주세요.')),
+                    );
+                    return;
+                  }
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                  );
+                },
                 child: Container(
                   height: 52,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [kPrimary, kPrimaryLight]),
+                    color: kPrimary,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   alignment: Alignment.center,
-                  child: const Text('회원가입',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: const Text('가입하기',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Divider
-              const Row(children: [
-                Expanded(child: Divider(color: kBorder)),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('또는', style: TextStyle(color: kMuted, fontSize: 13)),
-                ),
-                Expanded(child: Divider(color: kBorder)),
-              ]),
-              const SizedBox(height: 24),
-
-              _socialButton(
-                bg: const Color(0xFFFEE500),
-                fgColor: const Color(0xFF3C1E1E),
-                iconText: 'K',
-                iconBg: const Color(0xFF3C1E1E),
-                iconFg: const Color(0xFFFEE500),
-                label: '카카오톡으로 시작',
-              ),
-              const SizedBox(height: 12),
-              _socialButton(
-                bg: Colors.white,
-                fgColor: const Color(0xFF1F1F1F),
-                iconText: 'G',
-                iconBg: const Color(0xFF4285F4),
-                iconFg: Colors.white,
-                label: 'Google로 시작',
-              ),
-              const SizedBox(height: 32),
 
               // 로그인 링크
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('이미 계정이 있으신가요? ',
+                  Text('이미 계정이 있으신가요? ',
                       style: TextStyle(color: kMuted, fontSize: 14)),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Text('로그인',
-                        style: TextStyle(color: kPrimaryLight, fontSize: 14, fontWeight: FontWeight.bold)),
+                    child: Text('로그인',
+                        style: TextStyle(color: kPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -156,7 +167,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _label(String text) {
     return Text(text,
-        style: const TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600));
+        style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600));
   }
 
   Widget _inputField({
@@ -164,7 +175,6 @@ class _SignupScreenState extends State<SignupScreen> {
     required String hint,
     bool obscure = false,
     TextInputType keyboardType = TextInputType.text,
-    IconData? icon,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -176,47 +186,12 @@ class _SignupScreenState extends State<SignupScreen> {
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
-        style: const TextStyle(color: kFg),
+        style: TextStyle(color: kFg),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: kMuted),
-          prefixIcon: icon != null ? Icon(icon, color: kMuted, size: 20) : null,
+          hintStyle: TextStyle(color: kMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: InputBorder.none,
-        ),
-      ),
-    );
-  }
-
-  Widget _socialButton({
-    required Color bg,
-    required Color fgColor,
-    required String iconText,
-    required Color iconBg,
-    required Color iconFg,
-    required String label,
-  }) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        height: 52,
-        width: double.infinity,
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: Text(iconText,
-                  style: TextStyle(color: iconFg, fontWeight: FontWeight.bold, fontSize: 14)),
-            ),
-            const SizedBox(width: 10),
-            Text(label,
-                style: TextStyle(color: fgColor, fontWeight: FontWeight.bold, fontSize: 15)),
-          ],
         ),
       ),
     );

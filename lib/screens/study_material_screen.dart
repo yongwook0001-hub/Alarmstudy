@@ -1,124 +1,205 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/study_material.dart';
+import 'folder_detail_screen.dart';
 
-class StudyMaterialScreen extends StatelessWidget {
+class StudyMaterialScreen extends StatefulWidget {
   final List<StudyMaterial> materials;
-  final Function(StudyMaterial) onSummary;
+  final Function(StudyMaterial) onMaterialAdded;
+  final Function(int) onMaterialDeleted;
 
   const StudyMaterialScreen({
     super.key,
     required this.materials,
-    required this.onSummary,
+    required this.onMaterialAdded,
+    required this.onMaterialDeleted,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBg,
-      appBar: AppBar(
-        title: const Text('학습 자료'),
+  State<StudyMaterialScreen> createState() => _StudyMaterialScreenState();
+}
+
+class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
+  // 아직 파일이 하나도 없는 "빈 폴더" 이름들 (사용자가 미리 폴더만 만들어둔 경우)
+  final Set<String> _emptyFolders = {};
+
+  Map<String, List<StudyMaterial>> get _grouped {
+    final map = <String, List<StudyMaterial>>{};
+    for (final m in widget.materials) {
+      map.putIfAbsent(m.subject, () => []).add(m);
+    }
+    return map;
+  }
+
+  List<String> get _folderNames {
+    final names = {..._grouped.keys, ..._emptyFolders}.toList();
+    names.sort();
+    return names;
+  }
+
+  Future<void> _createFolder() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        title: Text('폴더 생성', style: TextStyle(color: kFg)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: kFg),
+          decoration: InputDecoration(
+            hintText: '예: 운영체제',
+            hintStyle: TextStyle(color: kMuted),
+          ),
+        ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              border: Border.all(color: kPrimary),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text('AI 요약', style: TextStyle(color: kPrimary, fontSize: 13)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('취소', style: TextStyle(color: kMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: Text('생성', style: TextStyle(color: kPrimary)),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // 입력 카드
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: kCard, borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: kBorder),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('학습 자료 입력', style: TextStyle(color: kMuted, fontSize: 13)),
-              const SizedBox(height: 8),
-              const Text(
-                '공부할 내용을 붙여넣거나 직접 입력하세요. AI가 자동으로 요약하고 퀴즈를 생성합니다.',
-                style: TextStyle(color: kFg, fontSize: 14, height: 1.5),
-              ),
-              const SizedBox(height: 60),
-              const Divider(color: kBorder),
-              const SizedBox(height: 8),
+    );
+    if (name != null && name.isNotEmpty) {
+      setState(() => _emptyFolders.add(name));
+    }
+  }
+
+  void _openFolder(String subject) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FolderDetailScreen(
+          subject: subject,
+          materials: widget.materials.where((m) => m.subject == subject).toList(),
+          onMaterialAdded: widget.onMaterialAdded,
+          onMaterialDeleted: widget.onMaterialDeleted,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = _grouped;
+    final names = _folderNames;
+
+    return Scaffold(
+      backgroundColor: kBg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(children: [
-                    Icon(Icons.upload, color: kMuted, size: 16),
-                    SizedBox(width: 6),
-                    Text('파일 업로드', style: TextStyle(color: kMuted, fontSize: 13)),
-                  ]),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [kPrimary, kPrimaryLight]),
-                      borderRadius: BorderRadius.circular(20),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('학습자료',
+                          style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text('폴더를 생성하고 PDF를 넣어보세요!',
+                          style: TextStyle(color: kMuted, fontSize: 12)),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: _createFolder,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: kPrimary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.add, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text('폴더 생성',
+                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      ]),
                     ),
-                    child: const Row(children: [
-                      Icon(Icons.auto_awesome, color: Colors.white, size: 14),
-                      SizedBox(width: 4),
-                      Text('AI 요약 생성', style: TextStyle(color: Colors.white, fontSize: 13)),
-                    ]),
                   ),
                 ],
               ),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          const Text('저장된 자료', style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          ...materials.map((m) => GestureDetector(
-            onTap: () => onSummary(m),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: kCard, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kBorder),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: kPrimary.withValues(alpha:0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(m.subject, style: const TextStyle(color: kPrimaryLight, fontSize: 11)),
+              const SizedBox(height: 20),
+              Expanded(
+                child: names.isEmpty
+                    ? Center(
+                  child: Text('폴더가 없어요. 우측 상단에서 만들어보세요.',
+                      style: TextStyle(color: kMuted, fontSize: 13)),
+                )
+                    : GridView.builder(
+                  itemCount: names.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.35,
                   ),
-                  const Icon(Icons.chevron_right, color: kMuted, size: 18),
-                ]),
-                const SizedBox(height: 8),
-                Text(m.title, style: const TextStyle(color: kFg, fontSize: 17, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text(m.summary,
-                  maxLines: 3, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: kMuted, fontSize: 13, height: 1.5),
+                  itemBuilder: (_, i) {
+                    final name = names[i];
+                    final files = grouped[name] ?? [];
+                    final totalQuiz = files.fold<int>(0, (sum, m) => sum + m.quizCount);
+                    return _folderCard(name, files.length, totalQuiz);
+                  },
                 ),
-                const SizedBox(height: 10),
-                const Divider(color: kBorder),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Row(children: [
-                    const Icon(Icons.psychology, color: kPrimary, size: 14),
-                    const SizedBox(width: 4),
-                    Text('퀴즈 ${m.quizCount}문제', style: const TextStyle(color: kMuted, fontSize: 12)),
-                  ]),
-                  Text(m.date, style: const TextStyle(color: kMuted, fontSize: 12)),
-                ]),
-              ]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _folderCard(String name, int fileCount, int totalQuiz) {
+    return GestureDetector(
+      onTap: () => _openFolder(name),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: kCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: kPrimary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.folder, color: kPrimary, size: 18),
+                ),
+                if (fileCount == 0)
+                  GestureDetector(
+                    onTap: () => setState(() => _emptyFolders.remove(name)),
+                    child: Icon(Icons.more_horiz, color: kMuted, size: 18),
+                  ),
+              ],
             ),
-          )),
-        ],
+            const Spacer(),
+            Text(name,
+                style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text('PDF ${fileCount}개 · 문제 ${totalQuiz}개',
+                style: TextStyle(color: kMuted, fontSize: 11)),
+          ],
+        ),
       ),
     );
   }

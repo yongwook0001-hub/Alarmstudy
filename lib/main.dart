@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 import 'models/alarm_model.dart';
 import 'models/study_material.dart';
 import 'models/quiz_question.dart';
@@ -8,14 +9,17 @@ import 'screens/home_screen.dart';
 import 'screens/alarm_list_screen.dart';
 import 'screens/alarm_add_screen.dart';
 import 'screens/study_material_screen.dart';
-import 'screens/ai_summary_screen.dart';
 import 'screens/alarm_ringing_screen.dart';
 import 'screens/my_page_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();  // ← 추가
-  await dotenv.load(fileName: '.env');         // ← 추가
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
+
+  // 카카오 SDK 초기화 — .env의 KAKAO_NATIVE_APP_KEY 사용
+  KakaoSdk.init(nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY']);
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -27,40 +31,81 @@ void main() async {
   runApp(const AlarmStudyApp());
 }
 
-// 샘플 데이터
-final sampleAlarms = [
+// ── 초기 샘플 알람 ──────────────────────────────────────────
+// TODO(실서버 연동): 아래 _initialAlarms/_initialMaterials는 목업 데이터.
+// 나중에 백엔드 알람/학습자료 조회 API가 생기면, MainShell.initState()에서
+// 이 목업 리스트 대신 API 응답으로 _alarms/_materials를 채우도록 바꾸면 됨
+// (지금처럼 List<AlarmModel>/List<StudyMaterial> 형태만 맞춰서 넣어주면
+// HomeScreen/AlarmListScreen/StudyMaterialScreen 등 화면 쪽은 수정 불필요).
+final _initialAlarms = [
   AlarmModel(
     id: 1, time: '06:30', label: '출근 준비',
     active: true, days: ['월', '화', '수', '목', '금'],
-    quizSubject: '한국사',
+    quizSubject: '한국사', materialId: 1,
   ),
   AlarmModel(
     id: 2, time: '08:00', label: '주말 공부',
     active: false, days: ['토', '일'],
-    quizSubject: '영어',
+    quizSubject: '영어', materialId: 2,
   ),
 ];
 
-final sampleMaterials = [
+// ── 초기 샘플 학습자료 (퀴즈 포함) ────────────────────────────
+final _initialMaterials = [
   StudyMaterial(
     id: 1, subject: '한국사', title: '조선시대 붕당정치',
     date: '2026-06-20',
-    summary: '붕당정치는 16세기 중반 이후 사림파의 집권과 함께 형성된 정치 형태로, 동인·서인의 분열을 시작으로 남인·북인·노론·소론 등 다양한 당파가 형성되었습니다.',
-    keyPoints: ['동인·서인 분열 (1575)', '예송논쟁으로 남인·서인 대립', '환국정치 - 숙종 시기 권력 교체', '노론·소론 분화'],
-    quizCount: 5,
+    summary: '붕당정치는 16세기 중반 사림파 집권 이후 동인·서인으로 분열되었고, 이후 노론·소론·남인·북인으로 세분화되었습니다.',
+    keyPoints: ['동인·서인 분열 (1575)', '예송논쟁으로 남인·서인 대립', '환국정치 - 숙종 시기 권력 교체'],
+    quizCount: 3,
+    quizQuestions: [
+      QuizQuestion(
+        question: '1575년 동인과 서인 분열의 직접적 원인은?',
+        options: ['이조전랑 임명 문제', '임진왜란 발발', '예송논쟁', '인조반정'],
+        correctIndex: 0,
+      ),
+      QuizQuestion(
+        question: '예송논쟁에서 대립한 두 붕당은?',
+        options: ['동인 vs 서인', '남인 vs 서인', '노론 vs 소론', '북인 vs 남인'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        question: '숙종 시기 권력이 붕당 간에 급격히 교체된 정치 형태를?',
+        options: ['탕평책', '환국정치', '세도정치', '훈구정치'],
+        correctIndex: 1,
+      ),
+    ],
   ),
   StudyMaterial(
     id: 2, subject: '영어', title: '관계대명사 완전정복',
     date: '2026-06-19',
-    summary: '관계대명사는 두 문장을 연결하면서 명사를 수식하는 절을 만드는 접속사 겸 대명사입니다. who, whom, whose, which, that이 있습니다.',
-    keyPoints: ['who/whom - 사람', 'which - 사물', 'whose - 소유격', 'that - 사람/사물 모두'],
-    quizCount: 5,
+    summary: '관계대명사는 두 문장을 연결하며 명사를 수식하는 절을 만든다. who·which·whose·that이 대표적이다.',
+    keyPoints: ['who/whom - 사람', 'which - 사물', 'whose - 소유격'],
+    quizCount: 3,
+    quizQuestions: [
+      QuizQuestion(
+        question: '사람을 선행사로 받는 관계대명사는?',
+        options: ['which', 'whose', 'who', 'that만 가능'],
+        correctIndex: 2,
+      ),
+      QuizQuestion(
+        question: '소유격 관계대명사는?',
+        options: ['who', 'whom', 'which', 'whose'],
+        correctIndex: 3,
+      ),
+      QuizQuestion(
+        question: '사람과 사물 모두에 쓸 수 있는 관계대명사는?',
+        options: ['who', 'which', 'whose', 'that'],
+        correctIndex: 3,
+      ),
+    ],
   ),
 ];
 
+// QuizQuestion은 더 이상 샘플로 사용하지 않음 — Gemini가 실시간 생성
 final sampleQuiz = QuizQuestion(
-  question: '조선시대 붕당정치에서 1575년 동인과 서인의 분열 원인이 된 사건은?',
-  options: ['이조전랑 임명 문제', '임진왜란 발발', '예송논쟁', '인조반정'],
+  question: '(데모용) 이 문제는 사용되지 않습니다.',
+  options: ['', '', '', ''],
   correctIndex: 0,
 );
 
@@ -69,27 +114,44 @@ class AlarmStudyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AI학습 알람',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: kBg,
-        colorScheme: const ColorScheme.dark(
-          surface: kBg,
-          primary: kPrimary,
-          secondary: kPrimaryLight,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: kBg,
-          elevation: 0,
-          iconTheme: IconThemeData(color: kFg),
-          titleTextStyle: TextStyle(
-            color: kFg, fontSize: 20, fontWeight: FontWeight.bold,
+    // ThemeController.isDark가 바뀔 때마다 MaterialApp 전체를 새로 그려서
+    // app_theme.dart의 kBg/kFg 등 getter들이 새 모드 값을 반영하도록 한다.
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.isDark,
+      builder: (context, isDark, _) {
+        return MaterialApp(
+          title: 'AI학습 알람',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            brightness: isDark ? Brightness.dark : Brightness.light,
+            scaffoldBackgroundColor: kBg,
+            colorScheme: ColorScheme(
+              brightness: isDark ? Brightness.dark : Brightness.light,
+              surface: kBg,
+              primary: kPrimary,
+              secondary: kPrimaryLight,
+              onSurface: kFg,
+              onPrimary: Colors.white,
+              onSecondary: Colors.white,
+              error: kRed,
+              onError: Colors.white,
+            ),
+            appBarTheme: AppBarTheme(
+              backgroundColor: kBg,
+              elevation: 0,
+              iconTheme: IconThemeData(color: kFg),
+              titleTextStyle: TextStyle(
+                color: kFg, fontSize: 20, fontWeight: FontWeight.bold,
+              ),
+            ),
+            dividerColor: kBorder,
+            inputDecorationTheme: InputDecorationTheme(
+              labelStyle: TextStyle(color: kMuted),
+            ),
           ),
-        ),
-      ),
-      home: const MainShell(),
+          home: const MainShell(),
+        );
+      },
     );
   }
 }
@@ -104,36 +166,73 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
 
+  // 학습자료 목록 — AI 요약 결과가 여기에 추가됨
+  final List<StudyMaterial> _materials = List.from(_initialMaterials);
+
+  // 알람 목록
+  final List<AlarmModel> _alarms = List.from(_initialAlarms);
+
+  // 학습자료가 추가될 때 목록 앞에 삽입
+  void _onMaterialAdded(StudyMaterial material) {
+    setState(() => _materials.insert(0, material));
+  }
+  // 1) _MainShellState 클래스 안에 메서드 하나 추가
+  //    (_onMaterialAdded 메서드 바로 아래에 이어서 넣으면 됩니다)
+  // ─────────────────────────────────────────────────────────
+
+  // 학습자료 삭제 (AiSummaryScreen에서 휴지통 아이콘 눌렀을 때 호출됨)
+  void _onMaterialDeleted(int id) {
+    setState(() => _materials.removeWhere((m) => m.id == id));
+  }
+
   Widget _buildScreen(BuildContext context) {
     switch (_tab) {
       case 0:
-        return HomeScreen(onTabChange: (i) {
-          if (i == 5) {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => AlarmRingingScreen(alarm: sampleAlarms[0]),
-            ));
-          } else {
-            setState(() => _tab = i.clamp(0, 3));
-          }
-        });
+        return HomeScreen(
+          onTabChange: (i) => setState(() => _tab = i.clamp(0, 3)),
+          alarms: _alarms,
+          materials: _materials,
+          onDemoAlarm: (alarm, material) => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AlarmRingingScreen(alarm: alarm, material: material, streakDays: 7),
+            ),
+          ),
+        );
+
       case 1:
         return AlarmListScreen(
-          alarms: sampleAlarms,
-          onAdd: () => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => const AlarmAddScreen(),
-          )),
+          alarms: _alarms,
+          materials: _materials,
+          onAdd: () async {
+            final alarm = await Navigator.push<AlarmModel>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AlarmAddScreen(materials: _materials),
+              ),
+            );
+            if (alarm != null) setState(() => _alarms.add(alarm));
+          },
         );
+
       case 2:
         return StudyMaterialScreen(
-          materials: sampleMaterials,
-          onSummary: (m) => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => AiSummaryScreen(material: m),
-          )),
+          materials: _materials,
+          onMaterialAdded: _onMaterialAdded,
+          onMaterialDeleted: _onMaterialDeleted,
         );
+
+
       case 3:
         return const MyPageScreen();
+
       default:
-        return HomeScreen(onTabChange: (_) {});
+        return HomeScreen(
+          onTabChange: (_) {},
+          alarms: _alarms,
+          materials: _materials,
+          onDemoAlarm: (_, __) {},
+        );
     }
   }
 
@@ -142,7 +241,7 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: _buildScreen(context),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(top: BorderSide(color: kBorder, width: 1)),
         ),
         child: BottomNavigationBar(

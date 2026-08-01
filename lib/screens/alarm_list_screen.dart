@@ -1,75 +1,107 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/alarm_model.dart';
+import '../models/study_material.dart';
 
 class AlarmListScreen extends StatefulWidget {
   final List<AlarmModel> alarms;
+  final List<StudyMaterial> materials;
   final VoidCallback onAdd;
-  const AlarmListScreen({super.key, required this.alarms, required this.onAdd});
+  const AlarmListScreen({
+    super.key,
+    required this.alarms,
+    required this.materials,
+    required this.onAdd,
+  });
 
   @override
   State<AlarmListScreen> createState() => _AlarmListScreenState();
 }
 
 class _AlarmListScreenState extends State<AlarmListScreen> {
-  final _days = ['월', '화', '수', '목', '금', '토', '일'];
-
   @override
   Widget build(BuildContext context) {
+    final activeCount = widget.alarms.where((a) => a.active).length;
+
     return Scaffold(
       backgroundColor: kBg,
-      appBar: AppBar(
-        title: const Text('알람 목록'),
-        actions: [
-          GestureDetector(
-            onTap: widget.onAdd,
-            child: Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(color: kPrimary, shape: BoxShape.circle),
-              child: const Icon(Icons.add, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          ...widget.alarms.map((alarm) => _alarmCard(alarm)),
-          const SizedBox(height: 12),
-          // 새 알람 추가 점선 카드
-          GestureDetector(
-            onTap: widget.onAdd,
-            child: Container(
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kMuted.withValues(alpha:0.4), style: BorderStyle.solid, width: 1.5),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 커스텀 헤더
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.add, color: kMuted, size: 28),
-                  SizedBox(height: 4),
-                  Text('새 알람 추가', style: TextStyle(color: kMuted, fontSize: 14)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('알람설정',
+                          style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text('예정된 알람 $activeCount개',
+                          style: TextStyle(color: kMuted, fontSize: 13)),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: widget.onAdd,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: kPrimary,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.add, color: Colors.white, size: 18),
+                          SizedBox(width: 4),
+                          Text('알람 추가',
+                              style: TextStyle(
+                                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                children: widget.alarms.map((alarm) => _alarmCard(alarm)).toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  String _quizLabel(AlarmModel alarm) {
+    if (alarm.materialId == null) return '퀴즈 없음';
+    try {
+      final m = widget.materials.firstWhere((m) => m.id == alarm.materialId);
+      return '${m.subject} ${m.title}';
+    } catch (_) {
+      return '학습자료 없음';
+    }
+  }
+
   Widget _alarmCard(AlarmModel alarm) {
+    final isOn = alarm.active;
+    final fg = isOn ? kFg : kMuted;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kCard, borderRadius: BorderRadius.circular(16),
+        color: kCard,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kBorder),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -100,7 +132,7 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
                 decoration: BoxDecoration(
                   color: isOn ? kPrimary : Colors.transparent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: isOn ? kPrimary : kMuted.withValues(alpha:0.4)),
+                  border: Border.all(color: isOn ? kPrimary : kMuted.withOpacity(0.4)),
                 ),
                 alignment: Alignment.center,
                 child: Text(d, style: TextStyle(

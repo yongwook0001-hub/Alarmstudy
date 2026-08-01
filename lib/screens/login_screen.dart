@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../main.dart';
+import '../models/auth_user.dart';
+import '../services/auth_service.dart';
+import '../services/user_session.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,11 +17,38 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _pwController = TextEditingController();
 
+  // 로그인 요청 진행 중이면 버튼 중복 탭 방지 + 로딩 표시용
+  bool _isLoading = false;
+
   @override
   void dispose() {
     _emailController.dispose();
     _pwController.dispose();
     super.dispose();
+  }
+
+  // 구글/카카오 공통 처리: AuthService 호출 → 성공하면 메인 화면으로 이동,
+  // 실패하면 화면 아래 SnackBar로 에러 메시지 표시.
+  Future<void> _handleSocialLogin(Future<AuthUser> Function() signIn) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final user = await signIn();
+      UserSession.set(user); // 홈/마이페이지 등에서 이 사용자 이름으로 표시됨
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('로그인 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -37,78 +68,77 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: 88,
+                      height: 88,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [kPrimary, kPrimaryLight],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: kLogoBg,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Icon(Icons.alarm, color: Colors.white, size: 40),
                     ),
                     const SizedBox(height: 16),
-                    const Text('AI학습 알람',
-                        style: TextStyle(color: kFg, fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text('S.O.S',
+                        style: TextStyle(
+                            color: kFg, fontSize: 26, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    const Text('퀴즈로 알람을 끄는 스마트 학습',
-                        style: TextStyle(color: kMuted, fontSize: 13)),
+                    Text('SOLVE TO STOP',
+                        style: TextStyle(
+                            color: kPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2)),
                   ],
                 ),
               ),
               const SizedBox(height: 48),
 
               // 이메일
-              const Text('이메일',
+              Text('이메일',
                   style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               _inputField(
                 controller: _emailController,
                 hint: 'example@email.com',
-                icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
 
               // 비밀번호
-              const Text('비밀번호',
+              Text('비밀번호',
                   style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               _inputField(
                 controller: _pwController,
                 hint: '비밀번호를 입력하세요',
-                icon: Icons.lock_outline,
                 obscure: true,
               ),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
-                child: Text('비밀번호 찾기',
-                    style: const TextStyle(color: kMuted, fontSize: 13)),
+                child: Text('비밀번호를 잊으셨나요?',
+                    style: TextStyle(color: kMuted, fontSize: 13)),
               ),
               const SizedBox(height: 28),
 
-              // 로그인 버튼
+              // 로그인 버튼 (단색)
               GestureDetector(
                 onTap: () {},
                 child: Container(
                   height: 52,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [kPrimary, kPrimaryLight]),
+                    color: kPrimary,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   alignment: Alignment.center,
                   child: const Text('로그인',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 24),
 
               // Divider
-              const Row(children: [
+              Row(children: [
                 Expanded(child: Divider(color: kBorder)),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
@@ -125,35 +155,42 @@ class _LoginScreenState extends State<LoginScreen> {
                 iconText: 'K',
                 iconBg: const Color(0xFF3C1E1E),
                 iconFg: const Color(0xFFFEE500),
-                label: '카카오톡으로 로그인',
+                label: '카카오로 계속하기',
+                onTap: () => _handleSocialLogin(AuthService.signInWithKakao),
               ),
               const SizedBox(height: 12),
 
-              // 구글 로그인
+              // 구글 로그인 (테두리 추가 - 흰 배경 위 흰 버튼이라 구분 필요)
               _socialButton(
                 bg: Colors.white,
                 fgColor: const Color(0xFF1F1F1F),
                 iconText: 'G',
                 iconBg: const Color(0xFF4285F4),
                 iconFg: Colors.white,
-                label: 'Google로 로그인',
+                label: 'Google로 계속하기',
+                border: kBorder,
+                onTap: () => _handleSocialLogin(AuthService.signInWithGoogle),
               ),
+              if (_isLoading) ...[
+                const SizedBox(height: 16),
+                const Center(child: CircularProgressIndicator()),
+              ],
               const SizedBox(height: 40),
 
               // 회원가입 링크
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('계정이 없으신가요? ',
+                  Text('계정이 없으신가요? ',
                       style: TextStyle(color: kMuted, fontSize: 14)),
                   GestureDetector(
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const SignupScreen()),
                     ),
-                    child: const Text('회원가입',
+                    child: Text('회원가입',
                         style: TextStyle(
-                            color: kPrimaryLight, fontSize: 14, fontWeight: FontWeight.bold)),
+                            color: kPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -170,7 +207,6 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hint,
     bool obscure = false,
     TextInputType keyboardType = TextInputType.text,
-    IconData? icon,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -182,11 +218,10 @@ class _LoginScreenState extends State<LoginScreen> {
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
-        style: const TextStyle(color: kFg),
+        style: TextStyle(color: kFg),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: kMuted),
-          prefixIcon: icon != null ? Icon(icon, color: kMuted, size: 20) : null,
+          hintStyle: TextStyle(color: kMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: InputBorder.none,
         ),
@@ -201,13 +236,19 @@ class _LoginScreenState extends State<LoginScreen> {
     required Color iconBg,
     required Color iconFg,
     required String label,
+    required VoidCallback onTap,
+    Color? border,
   }) {
     return GestureDetector(
-      onTap: () {},
+      onTap: onTap,
       child: Container(
         height: 52,
         width: double.infinity,
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: border != null ? Border.all(color: border) : null,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
