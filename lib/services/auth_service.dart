@@ -152,6 +152,23 @@ class AuthService {
     await _storage.delete(key: _kRefreshToken);
   }
 
+  // ── 회원 탈퇴 (Bearer 인증 필요) ─────────────────────────────
+  static Future<void> deleteAccount() async {
+    final accessToken = await getAccessToken();
+    if (accessToken == null) throw Exception('로그인이 필요합니다.');
+
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/api/users/me'),
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _toReadableException(response);
+    }
+    await _storage.delete(key: _kAccessToken);
+    await _storage.delete(key: _kRefreshToken);
+  }
+
   // ── 공통: 에러 응답({error_code, message}) → 읽기 쉬운 예외로 변환 ──
   static Exception _toReadableException(http.Response response) {
     String message = '(코드 ${response.statusCode})';

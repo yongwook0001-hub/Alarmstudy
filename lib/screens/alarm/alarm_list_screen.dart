@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../models/alarm_model.dart';
-import '../../models/study_material.dart';
+import '../../models/material_set.dart';
 
 class AlarmListScreen extends StatefulWidget {
   final List<AlarmModel> alarms;
-  final List<StudyMaterial> materials;
+  final List<MaterialSet> sets;
   final VoidCallback onAdd;
-  final void Function(AlarmModel alarm)? onToggle;
+  final Future<void> Function(AlarmModel alarm)? onToggle;
+  final Future<void> Function(AlarmModel alarm)? onDelete;
   const AlarmListScreen({
     super.key,
     required this.alarms,
-    required this.materials,
+    required this.sets,
     required this.onAdd,
     this.onToggle,
+    this.onDelete,
   });
 
   @override
@@ -85,12 +87,35 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
   }
 
   String _quizLabel(AlarmModel alarm) {
-    if (alarm.materialId == null) return '퀴즈 없음';
+    if (alarm.setId == null) return '퀴즈 없음';
     try {
-      final m = widget.materials.firstWhere((m) => m.id == alarm.materialId);
-      return '${m.subject} ${m.title}';
+      final s = widget.sets.firstWhere((s) => s.id == alarm.setId);
+      return s.title;
     } catch (_) {
       return '학습자료 없음';
+    }
+  }
+
+  Future<void> _confirmDelete(AlarmModel alarm) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        title: Text('알람을 삭제할까요?', style: TextStyle(color: kFg)),
+        content: Text('"${alarm.label}" (${alarm.time}) 알람을 삭제합니다.', style: TextStyle(color: kMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('취소', style: TextStyle(color: kMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('삭제', style: TextStyle(color: kRed))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.onDelete?.call(alarm);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+      }
     }
   }
 
@@ -119,9 +144,16 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
               Switch(
                 value: alarm.active,
                 activeColor: kPrimary,
-                onChanged: (v) {
+                onChanged: (v) async {
                   setState(() => alarm.active = v);
-                  widget.onToggle?.call(alarm);
+                  try {
+                    await widget.onToggle?.call(alarm);
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() => alarm.active = !v); // 실패하면 되돌림
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('변경 실패: $e')));
+                    }
+                  }
                 },
               ),
             ],
@@ -157,7 +189,10 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
                 Text('퀴즈 과목: ', style: TextStyle(color: kMuted, fontSize: 13)),
                 Text(_quizLabel(alarm), style: TextStyle(color: kPrimaryLight, fontSize: 13)),
               ]),
-              Icon(Icons.delete_outline, color: kMuted, size: 20),
+              GestureDetector(
+                onTap: () => _confirmDelete(alarm),
+                child: Icon(Icons.delete_outline, color: kMuted, size: 20),
+              ),
             ],
           ),
         ],

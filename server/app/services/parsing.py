@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 from typing import Protocol
 
 import pdfplumber
@@ -28,9 +29,11 @@ class GeminiSummaryGenerator:
 
     _MAX_EXCERPT_CHARS = 20_000
 
-    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash") -> None:
+    def __init__(self, api_key: str, model_name: str | None = None) -> None:
         self._api_key = api_key
-        self._model_name = model_name
+        # gemini-1.5-flash는 현재 API 버전에서 404 (단종됨) - main.py의 /summarize가 쓰는
+        # 것과 같은 모델로 통일한다. GEMINI_MODEL 환경변수로 오버라이드 가능.
+        self._model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
     async def generate(self, text: str) -> str:
         client = genai.Client(api_key=self._api_key)

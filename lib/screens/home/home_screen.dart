@@ -2,28 +2,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../models/alarm_model.dart';
-import '../../models/study_material.dart';
+import '../../models/material_set.dart';
 import '../../services/user_session.dart';
+import '../../services/stats_service.dart';
 import '../alarm/practice_quiz_select_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(int) onTabChange;
   final List<AlarmModel> alarms;
-  final List<StudyMaterial> materials;
-  final Function(AlarmModel, StudyMaterial?) onDemoAlarm;
+  final List<MaterialSet> sets;
   final String userName;
-  final int streakDays;
-  final int weeklyAccuracy;
 
   const HomeScreen({
     super.key,
     required this.onTabChange,
     required this.alarms,
-    required this.materials,
-    required this.onDemoAlarm,
+    required this.sets,
     this.userName = '용욱',
-    this.streakDays = 0,
-    this.weeklyAccuracy = 0,
   });
 
   @override
@@ -36,11 +31,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Duration _remaining = Duration.zero;
   AlarmModel? _nextAlarm;
 
+  StatsSummary? _stats;
+
   @override
   void initState() {
     super.initState();
     _recalculate();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _recalculate());
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await StatsService.summary();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {
+      // 통계 조회 실패는 화면 진입을 막을 정도는 아니라서 조용히 무시하고 기본값(0) 유지.
+    }
   }
 
   @override
@@ -106,10 +113,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$h:$m:$s';
   }
 
-  StudyMaterial? _materialFor(AlarmModel alarm) {
-    if (alarm.materialId == null) return null;
+  MaterialSet? _setFor(AlarmModel alarm) {
+    if (alarm.setId == null) return null;
     try {
-      return widget.materials.firstWhere((m) => m.id == alarm.materialId);
+      return widget.sets.firstWhere((s) => s.id == alarm.setId);
     } catch (_) {
       return null;
     }
@@ -117,7 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final material = _nextAlarm != null ? _materialFor(_nextAlarm!) : null;
+    final set = _nextAlarm != null ? _setFor(_nextAlarm!) : null;
+    final streakDays = _stats?.currentStreak ?? 0;
+    final weeklyAccuracy = _stats?.correctRate.round() ?? 0;
 
     return Scaffold(
       backgroundColor: kBg,
@@ -185,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text('  ·  ', style: TextStyle(color: kMuted, fontSize: 13)),
                           Expanded(
                             child: Text(
-                              material != null ? '${material.subject} ${material.title}' : _nextAlarm!.label,
+                              set != null ? set.title : _nextAlarm!.label,
                               style: TextStyle(color: kMuted, fontSize: 13),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -204,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => PracticeQuizSelectScreen(materials: widget.materials),
+                    builder: (_) => PracticeQuizSelectScreen(alarms: widget.alarms, sets: widget.sets),
                   ),
                 ),
                 child: Container(
@@ -229,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 연속 기상 스트릭 카드
+              // 연속 기상 스트릭 카드 - /api/stats/summary
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -255,15 +264,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${widget.streakDays}일 연속 기상 성공',
+                          Text('$streakDays일 연속 기상 성공',
                               style: TextStyle(
                                   color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
-                          Text('이번 주 평균 정답률 ${widget.weeklyAccuracy}%',
+                          Text('전체 평균 정답률 $weeklyAccuracy%',
                               style: TextStyle(color: kMuted, fontSize: 12)),
                         ],
                       ),
                     ),
-                    Text('${widget.streakDays}',
+                    Text('$streakDays',
                         style: TextStyle(
                             color: kPrimary, fontSize: 26, fontWeight: FontWeight.bold)),
                   ],
@@ -275,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text('최근 학습 자료',
                   style: TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              if (widget.materials.isEmpty)
+              if (widget.sets.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -287,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(color: kMuted, fontSize: 13)),
                 )
               else
-                ...widget.materials.take(4).map((m) => _materialRow(m)),
+                ...widget.sets.take(4).map((s) => _setRow(s)),
             ],
           ),
         ),
@@ -295,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _materialRow(StudyMaterial material) {
+  Widget _setRow(MaterialSet set) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -314,17 +323,17 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Icon(Icons.description_outlined, color: kPrimary, size: 18),
+            child: Icon(Icons.folder_outlined, color: kPrimary, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(material.title,
+                Text(set.title,
                     style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis),
-                Text('마지막 퀴즈: ${material.date}',
+                Text('PDF ${set.materialCount}개',
                     style: TextStyle(color: kMuted, fontSize: 12)),
               ],
             ),

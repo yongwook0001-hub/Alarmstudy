@@ -1,58 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../theme/app_theme.dart';
+import '../../models/material_set.dart';
 import '../../models/study_material.dart';
-import '../../services/ai_service.dart';
+import '../../services/materials_service.dart';
+import '../../services/song_store.dart';
 import 'ai_summary_screen.dart';
 
 class FolderDetailScreen extends StatefulWidget {
-  final String subject; // 폴더 이름
-  final List<StudyMaterial> materials; // 이 폴더 안의 파일들 (진입 시점 스냅샷)
-  final Function(StudyMaterial) onMaterialAdded;
-  final Function(int) onMaterialDeleted;
+  final MaterialSet set;
+  final Future<void> Function() onChanged; // 부모(AppData)에게 "세트가 바뀌었으니 다시 불러와" 알림
 
-  const FolderDetailScreen({
-    super.key,
-    required this.subject,
-    required this.materials,
-    required this.onMaterialAdded,
-    required this.onMaterialDeleted,
-  });
+  const FolderDetailScreen({super.key, required this.set, required this.onChanged});
 
   @override
   State<FolderDetailScreen> createState() => _FolderDetailScreenState();
 }
 
 class _FolderDetailScreenState extends State<FolderDetailScreen> {
-  late List<StudyMaterial> _files;
-  final _textController = TextEditingController();
-  bool _showTextInput = false;
-  bool _loading = false;
+  bool _uploading = false;
   String? _error;
   String? _pickedFileName;
 
-  @override
-  void initState() {
-    super.initState();
-    _files = List.from(widget.materials);
+  static const _maxFilesPerSet = 5; // server/app/core/constants.py MAX_FILES_PER_SET
+
+  // 주의: widget.set은 AppData.sets 안의 객체와 "같은 참조"를 그대로 들고 있는 것이다
+  // (study_material_screen.dart에서 세트를 새 객체로 바꿔치기하지 않고 그대로 넘겨줌).
+  // 그래서 업로드/삭제 후 widget.onChanged()가 AppData.refreshSetDetail을 호출해도
+  // 그 메서드는 이 객체(existing)를 새 객체로 교체하지 않고 내용(materials 등)만 바꾼다 -
+  // 덕분에 여기서 별도로 세트를 다시 들고 있을 필요 없이 widget.set을 그대로 쓰면 된다
+  // (AiSummaryScreen에서 노래를 생성해도 같은 객체를 mutate하는 것이라 바로 반영됨).
+  Future<void> _refresh() async {
+    await widget.onChanged();
+    if (mounted) setState(() {});
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
+  Future<void> _pickAndUploadPdf() async {
+    if (widget.set.materials.length >= _maxFilesPerSet) {
+      setState(() => _error = '폴더당 PDF는 최대 $_maxFilesPerSet개까지 넣을 수 있어요.');
+      return;
+    }
 
-  int get _totalQuiz => _files.fold<int>(0, (sum, m) => sum + m.quizCount);
-
-  String get _avgAccuracyLabel {
-    final withAttempts = _files.where((m) => m.accuracy != null).toList();
-    if (withAttempts.isEmpty) return '-';
-    final avg = withAttempts.map((m) => m.accuracy!).reduce((a, b) => a + b) / withAttempts.length;
-    return avg.round().toString();
-  }
-
-  Future<void> _pickPdf() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
@@ -66,73 +54,48 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
       return;
     }
 
-    const maxBytes = 10 * 1024 * 1024;
+    const maxBytes = 20 * 1024 * 1024; // server/app/core/constants.py MAX_FILE_SIZE_BYTES
     if (file.bytes!.length > maxBytes) {
-      setState(() => _error = 'PDF가 너무 큽니다 (최대 10MB).');
+      setState(() => _error = 'PDF가 너무 큽니다 (최대 20MB).');
       return;
     }
 
     setState(() {
-      _loading = true;
+      _uploading = true;
       _error = null;
       _pickedFileName = file.name;
     });
 
     try {
-      final material = await AiService.summarizePdf(
-        pdfBytes: file.bytes!,
-        subject: widget.subject,
+      await MaterialsService.uploadPdf(
+        setId: widget.set.id,
+        fileName: file.name,
+        bytes: file.bytes!,
+        isMain: widget.set.materials.isEmpty, // 세트의 첫 파일을 메인 자료로 지정 (요약 생성 기준)
       );
-      widget.onMaterialAdded(material);
-      setState(() {
-        _files.insert(0, material);
-        _loading = false;
-        _pickedFileName = null;
-      });
+      await _refresh();
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _pickedFileName = null;
-        _error = e.toString().replaceAll('Exception: ', '');
-      });
+      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
-  Future<void> _summarizeText() async {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      setState(() => _error = '내용을 입력해주세요.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
+  Future<void> _deleteMaterial(StudyMaterial m) async {
     try {
-      final material = await AiService.summarizeText(text: text, subject: widget.subject);
-      widget.onMaterialAdded(material);
-      setState(() {
-        _files.insert(0, material);
-        _loading = false;
-        _textController.clear();
-        _showTextInput = false;
-      });
+      await MaterialsService.delete(m.id);
+      await SongStore.remove(m.id); // 자료가 지워졌으니 로컬 노래 연결 정보도 같이 정리
+      await _refresh();
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _error = 'AI 요약 실패: $e';
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+      }
     }
-  }
-
-  void _deleteFile(int id) {
-    widget.onMaterialDeleted(id);
-    setState(() => _files.removeWhere((m) => m.id == id));
   }
 
   @override
   Widget build(BuildContext context) {
+    final set = widget.set;
     return Scaffold(
       backgroundColor: kBg,
       body: SafeArea(
@@ -151,9 +114,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.subject,
+                        Text(set.title,
                             style: TextStyle(color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
-                        Text('PDF ${_files.length}개 · 누적 문제 $_totalQuiz개 · 정답률 $_avgAccuracyLabel%',
+                        Text('PDF ${set.materials.length}/$_maxFilesPerSet개',
                             style: TextStyle(color: kMuted, fontSize: 12)),
                       ],
                     ),
@@ -166,93 +129,27 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                 children: [
-                  // 세그먼트 버튼
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: _loading ? null : () {
-                            setState(() => _showTextInput = false);
-                            _pickPdf();
-                          },
-                          child: Container(
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: !_showTextInput ? kPrimary : kCard,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: !_showTextInput ? kPrimary : kBorder),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text('PDF 업로드',
-                                style: TextStyle(
-                                    color: !_showTextInput ? Colors.white : kFg,
-                                    fontWeight: FontWeight.bold, fontSize: 14)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _showTextInput = !_showTextInput),
-                          child: Container(
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: _showTextInput ? kPrimary : kCard,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: _showTextInput ? kPrimary : kBorder),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text('직접 입력',
-                                style: TextStyle(
-                                    color: _showTextInput ? Colors.white : kFg,
-                                    fontWeight: FontWeight.bold, fontSize: 14)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  if (_showTextInput) ...[
-                    const SizedBox(height: 12),
-                    Container(
+                  GestureDetector(
+                    onTap: _uploading ? null : _pickAndUploadPdf,
+                    child: Container(
+                      height: 46,
+                      width: double.infinity,
                       decoration: BoxDecoration(
-                        color: kCard,
+                        color: _uploading ? kBorder : kPrimary,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: kBorder),
                       ),
-                      child: TextField(
-                        controller: _textController,
-                        maxLines: 6,
-                        style: TextStyle(color: kFg, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: '공부할 내용을 붙여넣거나 직접 입력하세요.',
-                          hintStyle: TextStyle(color: kMuted, fontSize: 13),
-                          contentPadding: EdgeInsets.all(12),
-                          border: InputBorder.none,
-                        ),
-                      ),
+                      alignment: Alignment.center,
+                      child: _uploading
+                          ? SizedBox(
+                              width: 18, height: 18,
+                              child: CircularProgressIndicator(color: kMuted, strokeWidth: 2),
+                            )
+                          : Text('PDF 업로드',
+                              style: TextStyle(
+                                  color: _uploading ? kMuted : Colors.white,
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: _loading ? null : _summarizeText,
-                      child: Container(
-                        height: 44,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: _loading ? kBorder : kPrimary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        alignment: Alignment.center,
-                        child: _loading
-                            ? SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(color: kMuted, strokeWidth: 2),
-                        )
-                            : const Text('AI 요약 생성',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
+                  ),
 
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -272,11 +169,16 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
 
-                  // PDF 처리 중인 임시 항목 (로딩 중일 때만 상단에 표시)
-                  if (_loading && _pickedFileName != null)
-                    _pendingTile(_pickedFileName!),
+                  if (_uploading && _pickedFileName != null) _pendingTile(_pickedFileName!),
 
-                  ..._files.map((m) => _fileTile(m)),
+                  if (set.materials.isEmpty && !_uploading)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text('아직 업로드된 PDF가 없어요.',
+                          style: TextStyle(color: kMuted, fontSize: 13)),
+                    ),
+
+                  ...set.materials.map((m) => _fileTile(m)),
                 ],
               ),
             ),
@@ -314,11 +216,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: kMuted.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                    child: Text('요약 중', style: TextStyle(color: kMuted, fontSize: 10)),
+                    child: Text('업로드 중', style: TextStyle(color: kMuted, fontSize: 10)),
                   ),
                 ]),
                 const SizedBox(height: 4),
-                Text('AI가 분석하고 있어요...', style: TextStyle(color: kMuted, fontSize: 12)),
+                Text('S3에 올리고 AI가 분석할 준비를 하고 있어요...', style: TextStyle(color: kMuted, fontSize: 12)),
               ],
             ),
           ),
@@ -332,8 +234,8 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Widget _fileTile(StudyMaterial m) {
-    final accLabel = m.accuracy != null ? '${m.accuracy!.round()}%' : '-%';
-    final pagesLabel = m.pages != null ? '${m.pages}p' : '-p';
+    final pagesLabel = m.pageCount != null ? '${m.pageCount}p' : '-p';
+    final statusColor = m.isReady ? kPrimary : (m.isFailed ? kRed : kMuted);
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -341,13 +243,17 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         MaterialPageRoute(
           builder: (_) => AiSummaryScreen(
             material: m,
+            set: widget.set,
             onDelete: () {
-              _deleteFile(m.id);
+              _deleteMaterial(m);
               Navigator.pop(context);
             },
           ),
         ),
-      ),
+      ).then((_) {
+        // AiSummaryScreen에서 노래를 만들었을 수 있으니(같은 객체를 mutate) 화면만 다시 그린다.
+        if (mounted) setState(() {});
+      }),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
@@ -370,16 +276,16 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Expanded(child: Text(m.title, style: TextStyle(color: kFg, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                    Expanded(child: Text(m.displayTitle, style: TextStyle(color: kFg, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: kPrimary.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                      child: Text('요약 완료', style: TextStyle(color: kPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                      child: Text(m.statusLabel, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ]),
                   const SizedBox(height: 4),
-                  Text('$pagesLabel · 문제 ${m.quizCount}개 · 정답률 $accLabel',
+                  Text('$pagesLabel · ${m.isMain ? '메인 자료' : '보조 자료'}',
                       style: TextStyle(color: kMuted, fontSize: 12)),
                 ],
               ),

@@ -3,23 +3,74 @@ import '../../theme/app_theme.dart';
 import '../../theme/theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_session.dart';
+import '../../services/stats_service.dart';
 import '../auth/login_screen.dart';
 import 'notification_settings_screen.dart';
 import 'account_info_screen.dart';
 import '../../widgets/section_title.dart';
 import '../../widgets/settings_group.dart';
 
-class MyPageScreen extends StatelessWidget {
+class MyPageScreen extends StatefulWidget {
   final String userName;
   final String userEmail;
-  final int streakDays;
 
   const MyPageScreen({
     super.key,
     this.userName = '진유하',
     this.userEmail = 'yuha@univ.ac.kr',
-    this.streakDays = 7,
   });
+
+  @override
+  State<MyPageScreen> createState() => _MyPageScreenState();
+}
+
+class _MyPageScreenState extends State<MyPageScreen> {
+  int _streakDays = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await StatsService.summary();
+      if (mounted) setState(() => _streakDays = stats.currentStreak);
+    } catch (_) {
+      // 통계 조회 실패는 화면 진입을 막지 않는다 (0일로 표시).
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        title: Text('회원 탈퇴할까요?', style: TextStyle(color: kFg)),
+        content: Text('계정과 모든 알람/학습자료가 삭제되고 되돌릴 수 없어요.', style: TextStyle(color: kMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('취소', style: TextStyle(color: kMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('탈퇴', style: TextStyle(color: kRed))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await AuthService.deleteAccount();
+      UserSession.clear();
+      if (!context.mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('탈퇴 실패: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +86,8 @@ class MyPageScreen extends StatelessWidget {
               ValueListenableBuilder(
                 valueListenable: UserSession.current,
                 builder: (context, user, _) {
-                  final displayName = user?.nickname ?? userName;
-                  final displayEmail = user?.email ?? userEmail;
+                  final displayName = user?.nickname ?? widget.userName;
+                  final displayEmail = user?.email ?? widget.userEmail;
                   return Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 32),
@@ -75,7 +126,7 @@ class MyPageScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 스트릭 카드 (배너와 살짝 겹치게 위로 올림)
+                    // 스트릭 카드 (배너와 살짝 겹치게 위로 올림) - /api/stats/summary
                     Transform.translate(
                       offset: const Offset(0, -24),
                       child: Container(
@@ -94,7 +145,7 @@ class MyPageScreen extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('$streakDays일',
+                                  Text('$_streakDays일',
                                       style: TextStyle(
                                           color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
                                   Text('연속 미라클 모닝',
@@ -102,16 +153,17 @@ class MyPageScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: kPrimary.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(20),
+                            if (_streakDays > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: kPrimary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text('진행 중!',
+                                    style: TextStyle(
+                                        color: kPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
-                              child: Text('1주 달성!',
-                                  style: TextStyle(
-                                      color: kPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
                           ],
                         ),
                       ),
@@ -163,7 +215,7 @@ class MyPageScreen extends StatelessWidget {
                           (route) => false,
                         );
                       }),
-                      _menuItem('회원 탈퇴', color: kRed, onTap: () {}),
+                      _menuItem('회원 탈퇴', color: kRed, onTap: () => _confirmDeleteAccount(context)),
                     ]),
                   ],
                 ),

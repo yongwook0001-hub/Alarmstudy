@@ -1,92 +1,80 @@
-import 'quiz_question.dart';
-
-/// 학습 자료 한 건 (PDF 한 개 또는 직접 입력한 텍스트 한 개에 대응).
-/// "폴더"는 별도 모델이 아니라, 같은 subject를 가진 StudyMaterial들을
-/// 화면에서 그룹핑해서 보여주는 방식으로 구현한다 (폴더 화면 쪽 로직 참고).
+/// 세트(MaterialSet) 안에 들어있는 PDF 파일 한 건.
+/// 백엔드 GET /api/sets/{id} 응답의 MaterialNested를 그대로 반영한다.
+///
+/// 주의: 백엔드에는 "제목/핵심포인트/퀴즈미리보기/정답률" 같은 필드가 없다 -
+/// 퀴즈는 이 자료에 즉시 딸려있는 게 아니라 서버가 백그라운드에서 만들어
+/// 세트 단위 버퍼에 쌓아두고, 알람이 울릴 때(POST /api/sessions)만 꺼내준다.
+/// 그래서 이 모델은 "업로드 상태 + 요약"까지만 표현한다 (기존의 즉석 요약+퀴즈
+/// 미리보기 필드들은 실제 백엔드 계약에 없어서 제거했다).
 class StudyMaterial {
   final int id;
-  final String subject; // 폴더 이름 역할도 겸함
-  final String title;
-  final String date;
-  final String summary;
-  final List<String> keyPoints;
-  final int quizCount;
-  final List<QuizQuestion> quizQuestions;
+  final int setId;
+  final bool isMain;
+  final String fileName;
+  final int fileSizeBytes;
 
-  // PDF 페이지 수 - 지금은 Gemini 응답에 없어서 null 기본값.
-  // 나중에 pdf 페이지 카운트 라이브러리(예: syncfusion_flutter_pdf)를 붙이면 채울 수 있음.
-  final int? pages;
-
-  // 퀴즈 풀이 누적 통계 - 알람 퀴즈 화면(AlarmRingingScreen)에서 정답 제출할 때마다 갱신됨
-  int correctCount;
-  int wrongCount;
-
-  // 주제별 통계 - key는 QuizQuestion.topic
-  Map<String, int> topicCorrect;
-  Map<String, int> topicWrong;
+  /// pending(업로드 URL만 발급됨) → uploaded(S3 업로드 완료, 파싱 대기)
+  /// → ready(요약 완료) | parse_failed(파싱 실패)
+  String uploadStatus;
+  final int? pageCount;
+  String? summary;
+  final DateTime createdAt;
 
   // AI가 이 자료의 요약으로 만들어준 노래 - 없으면 아직 생성 안 한 것.
-  // songPath는 기기 로컬에 저장된 오디오 파일의 절대경로(song_service.dart 참고),
-  // songLyrics는 그 노래의 가사. 둘 다 mutable - "노래 만들기" 버튼 누른 시점에 채워짐.
+  // 기기 로컬 파일 경로라서 서버에는 저장되지 않는다(재설치/기기변경 시 유실됨) - 알려진 한계.
   String? songPath;
   String? songLyrics;
 
   StudyMaterial({
     required this.id,
-    required this.subject,
-    required this.title,
-    required this.date,
-    required this.summary,
-    required this.keyPoints,
-    required this.quizCount,
-    required this.quizQuestions,
-    this.pages,
-    this.correctCount = 0,
-    this.wrongCount = 0,
-    Map<String, int>? topicCorrect,
-    Map<String, int>? topicWrong,
+    required this.setId,
+    required this.isMain,
+    required this.fileName,
+    required this.fileSizeBytes,
+    required this.uploadStatus,
+    this.pageCount,
+    this.summary,
+    required this.createdAt,
     this.songPath,
     this.songLyrics,
-  })  : topicCorrect = topicCorrect ?? {},
-        topicWrong = topicWrong ?? {};
+  });
 
-  /// 전체 정답률 (0~100). 아직 한 번도 안 풀었으면 null.
-  double? get accuracy {
-    final total = correctCount + wrongCount;
-    if (total == 0) return null;
-    return correctCount / total * 100;
+  factory StudyMaterial.fromJson(Map<String, dynamic> json, {required int setId}) {
+    return StudyMaterial(
+      id: json['id'],
+      setId: setId,
+      isMain: json['is_main'] ?? false,
+      fileName: json['file_name'] ?? '',
+      fileSizeBytes: json['file_size_bytes'] ?? 0,
+      uploadStatus: json['upload_status'] ?? 'pending',
+      pageCount: json['page_count'],
+      summary: json['summary'],
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+    );
   }
 
-  /// 퀴즈 하나를 풀었을 때 호출 - 전체 통계와 주제별 통계를 함께 갱신한다.
-  /// alarm_ringing_screen.dart(퀴즈 채점하는 화면)에서
-  /// 사용자가 답을 제출하는 시점에 이 메서드를 호출해줘야 통계가 쌓인다.
-  void recordAnswer({required bool isCorrect, required String topic}) {
-    if (isCorrect) {
-      correctCount++;
-      topicCorrect[topic] = (topicCorrect[topic] ?? 0) + 1;
-    } else {
-      wrongCount++;
-      topicWrong[topic] = (topicWrong[topic] ?? 0) + 1;
+  /// 확장자를 뗀 파일명 - 화면 제목으로 사용.
+  String get displayTitle {
+    if (fileName.toLowerCase().endsWith('.pdf')) {
+      return fileName.substring(0, fileName.length - 4);
     }
+    return fileName;
   }
 
-  /// 주제별 정답률 맵 (시도한 주제만 포함, 정답률 내림차순 아님 - 화면에서 정렬)
-  Map<String, double> get topicAccuracy {
-    final topics = {...topicCorrect.keys, ...topicWrong.keys};
-    final result = <String, double>{};
-    for (final t in topics) {
-      final correct = topicCorrect[t] ?? 0;
-      final wrong = topicWrong[t] ?? 0;
-      final total = correct + wrong;
-      if (total > 0) result[t] = correct / total * 100;
+  String get dateLabel => createdAt.toString().substring(0, 10);
+
+  bool get isReady => uploadStatus == 'ready';
+  bool get isFailed => uploadStatus == 'parse_failed';
+  bool get isProcessing => uploadStatus == 'pending' || uploadStatus == 'uploaded';
+
+  String get statusLabel {
+    switch (uploadStatus) {
+      case 'ready':
+        return '요약 완료';
+      case 'parse_failed':
+        return '분석 실패';
+      default:
+        return '분석 중';
     }
-    return result;
-  }
-
-  /// 정답률이 가장 낮은 주제 (약점 피드백용). 시도한 주제가 없으면 null.
-  String? get weakestTopic {
-    final acc = topicAccuracy;
-    if (acc.isEmpty) return null;
-    return acc.entries.reduce((a, b) => a.value <= b.value ? a : b).key;
   }
 }

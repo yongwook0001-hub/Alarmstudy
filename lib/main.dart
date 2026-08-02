@@ -1,18 +1,24 @@
 import 'dart:async';
 import 'package:alarm/alarm.dart';
+// AlarmSet은 alarm.dart 배럴 파일에서 재수출되지 않아서 따로 import 필요
+// (패키지 소스 기준 lib/utils/alarm_set.dart에 정의돼 있음).
+import 'package:alarm/utils/alarm_set.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'models/alarm_model.dart';
-import 'models/study_material.dart';
+import 'models/material_set.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/alarm/alarm_list_screen.dart';
 import 'screens/alarm/alarm_add_screen.dart';
 import 'screens/study_material/study_material_screen.dart';
 import 'screens/alarm/alarm_ringing_screen.dart';
 import 'screens/my_page/my_page_screen.dart';
+import 'screens/auth/login_screen.dart';
 import 'services/alarm_scheduler.dart';
+import 'services/auth_service.dart';
+import 'services/user_session.dart';
 import 'state/app_data.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
@@ -77,10 +83,63 @@ class AlarmStudyApp extends StatelessWidget {
               labelStyle: TextStyle(color: kMuted),
             ),
           ),
-          home: const MainShell(),
+          home: const AuthGate(),
         );
       },
     );
+  }
+}
+
+/// 앱 시작 시 저장된 로그인 토큰이 아직 유효한지 확인해서, 유효하면 바로 MainShell로,
+/// 아니면 로그인 화면으로 보낸다. 백엔드 대부분의 API가 로그인(Bearer 토큰)을 요구하기
+/// 때문에 — 목업 데이터로 로그인 없이 둘러볼 수 있던 예전과 달리 — 이제 로그인이 필수다.
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+enum _GateState { checking, loggedIn, loggedOut }
+
+class _AuthGateState extends State<AuthGate> {
+  _GateState _state = _GateState.checking;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    final token = await AuthService.getAccessToken();
+    if (token == null) {
+      setState(() => _state = _GateState.loggedOut);
+      return;
+    }
+    try {
+      final user = await AuthService.getMe();
+      UserSession.set(user);
+      if (mounted) setState(() => _state = _GateState.loggedIn);
+    } catch (_) {
+      // 토큰 만료/무효 - 다시 로그인해야 함.
+      if (mounted) setState(() => _state = _GateState.loggedOut);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_state) {
+      case _GateState.checking:
+        return Scaffold(
+          backgroundColor: kBg,
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      case _GateState.loggedIn:
+        return const MainShell();
+      case _GateState.loggedOut:
+        return const LoginScreen();
+    }
   }
 }
 
@@ -93,8 +152,10 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
+  bool _loading = true;
+  String? _loadError;
 
-  // 알람/학습자료 목록 + 실제 기기 알람 예약 로직은 AppData 하나에 모아둠
+  // 알람/세트 목록 + 서버 동기화 + 실제 기기 알람 예약 로직은 AppData 하나에 모아둠
   // (state/app_data.dart 참고). 여기서는 언제 다시 그릴지(setState)만 신경 쓴다.
   final _appData = AppData();
 
@@ -103,14 +164,21 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    // 앱 시작 시: 정확한 알람 권한 요청 + 활성 알람 전부 "다음 발생 시각" 기준으로 재예약.
-    // (기기 재부팅/장시간 미실행 후에도 스케줄이 최신 상태를 유지하도록)
-    AlarmScheduler.requestExactAlarmPermission();
-    _appData.rescheduleAll();
-
+    _init();
     // 실제로 알람이 울리는 시점(앱이 켜져있는 동안 포함)을 감지해서
     // AlarmRingingScreen(퀴즈 풀어야 꺼지는 화면)으로 이동시킴.
     _ringSub = Alarm.ringing.listen(_onAlarmRinging);
+  }
+
+  Future<void> _init() async {
+    // 앱 시작 시: 정확한 알람 권한 요청 + 서버에서 알람/세트 로드 + 재예약까지 한 번에.
+    await AlarmScheduler.requestExactAlarmPermission();
+    await _appData.loadAll();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _loadError = _appData.loadError;
+    });
   }
 
   @override
@@ -124,25 +192,35 @@ class _MainShellState extends State<MainShell> {
       final alarm = _appData.findAlarm(settings.id);
       if (alarm == null) continue;
 
-      final material = _appData.findMaterial(alarm.materialId);
+      final set = _appData.findSet(alarm.setId);
 
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AlarmRingingScreen(alarm: alarm, material: material, streakDays: 7),
+          builder: (_) => AlarmRingingScreen(alarm: alarm, set: set, streakDays: 7),
         ),
       );
     }
   }
 
-  // 학습자료가 추가될 때 목록 앞에 삽입
-  void _onMaterialAdded(StudyMaterial material) {
-    setState(() => _appData.addMaterial(material));
+  void _retryInit() {
+    setState(() => _loading = true);
+    _init();
   }
 
-  // 학습자료 삭제 (AiSummaryScreen에서 휴지통 아이콘 눌렀을 때 호출됨)
-  void _onMaterialDeleted(int id) {
-    setState(() => _appData.deleteMaterial(id));
+  Future<void> _reloadSet(int setId) async {
+    await _appData.refreshSetDetail(setId);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _createFolder(String title) async {
+    await _appData.addSet(title);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _deleteFolder(int setId) async {
+    await _appData.deleteSet(setId);
+    if (mounted) setState(() {});
   }
 
   Widget _buildScreen(BuildContext context) {
@@ -151,38 +229,42 @@ class _MainShellState extends State<MainShell> {
         return HomeScreen(
           onTabChange: (i) => setState(() => _tab = i.clamp(0, 3)),
           alarms: _appData.alarms,
-          materials: _appData.materials,
-          onDemoAlarm: (alarm, material) => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AlarmRingingScreen(alarm: alarm, material: material, streakDays: 7),
-            ),
-          ),
+          sets: _appData.sets,
         );
 
       case 1:
         return AlarmListScreen(
           alarms: _appData.alarms,
-          materials: _appData.materials,
+          sets: _appData.sets,
           onAdd: () async {
             final alarm = await Navigator.push<AlarmModel>(
               context,
               MaterialPageRoute(
-                builder: (_) => AlarmAddScreen(materials: _appData.materials),
+                builder: (_) => AlarmAddScreen(sets: _appData.sets),
               ),
             );
-            if (alarm != null) setState(() => _appData.addAlarm(alarm));
+            if (alarm != null) {
+              await _appData.addAlarm(alarm);
+              if (mounted) setState(() {});
+            }
           },
-          onToggle: (alarm) => AlarmScheduler.schedule(alarm),
+          onToggle: (alarm) async {
+            await _appData.updateAlarm(alarm);
+            if (mounted) setState(() {});
+          },
+          onDelete: (alarm) async {
+            await _appData.deleteAlarm(alarm.id);
+            if (mounted) setState(() {});
+          },
         );
 
       case 2:
         return StudyMaterialScreen(
-          materials: _appData.materials,
-          onMaterialAdded: _onMaterialAdded,
-          onMaterialDeleted: _onMaterialDeleted,
+          sets: _appData.sets,
+          onCreateFolder: _createFolder,
+          onDeleteFolder: _deleteFolder,
+          onSetChanged: _reloadSet,
         );
-
 
       case 3:
         return const MyPageScreen();
@@ -191,14 +273,43 @@ class _MainShellState extends State<MainShell> {
         return HomeScreen(
           onTabChange: (_) {},
           alarms: _appData.alarms,
-          materials: _appData.materials,
-          onDemoAlarm: (_, __) {},
+          sets: _appData.sets,
         );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: kBg,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: kBg,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('데이터를 불러오지 못했어요.\n$_loadError',
+                    textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _retryInit,
+                  child: const Text('다시 시도'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: _buildScreen(context),
       bottomNavigationBar: Container(

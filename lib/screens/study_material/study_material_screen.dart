@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
-import '../../models/study_material.dart';
+import '../../models/material_set.dart';
 import 'folder_detail_screen.dart';
 
 class StudyMaterialScreen extends StatefulWidget {
-  final List<StudyMaterial> materials;
-  final Function(StudyMaterial) onMaterialAdded;
-  final Function(int) onMaterialDeleted;
+  final List<MaterialSet> sets;
+  final Future<void> Function(String title) onCreateFolder;
+  final Future<void> Function(int setId) onDeleteFolder;
+  final Future<void> Function(int setId) onSetChanged;
 
   const StudyMaterialScreen({
     super.key,
-    required this.materials,
-    required this.onMaterialAdded,
-    required this.onMaterialDeleted,
+    required this.sets,
+    required this.onCreateFolder,
+    required this.onDeleteFolder,
+    required this.onSetChanged,
   });
 
   @override
@@ -20,22 +22,7 @@ class StudyMaterialScreen extends StatefulWidget {
 }
 
 class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
-  // 아직 파일이 하나도 없는 "빈 폴더" 이름들 (사용자가 미리 폴더만 만들어둔 경우)
-  final Set<String> _emptyFolders = {};
-
-  Map<String, List<StudyMaterial>> get _grouped {
-    final map = <String, List<StudyMaterial>>{};
-    for (final m in widget.materials) {
-      map.putIfAbsent(m.subject, () => []).add(m);
-    }
-    return map;
-  }
-
-  List<String> get _folderNames {
-    final names = {..._grouped.keys, ..._emptyFolders}.toList();
-    names.sort();
-    return names;
-  }
+  bool _creating = false;
 
   Future<void> _createFolder() async {
     final controller = TextEditingController();
@@ -65,20 +52,55 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
         ],
       ),
     );
-    if (name != null && name.isNotEmpty) {
-      setState(() => _emptyFolders.add(name));
+    if (name == null || name.isEmpty) return;
+
+    setState(() => _creating = true);
+    try {
+      await widget.onCreateFolder(name);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('폴더 생성 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
     }
   }
 
-  void _openFolder(String subject) {
+  Future<void> _confirmDeleteFolder(MaterialSet set) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCard,
+        title: Text('폴더를 삭제할까요?', style: TextStyle(color: kFg)),
+        content: Text('"${set.title}" 폴더와 안의 PDF가 모두 삭제돼요. 이 폴더를 쓰던 알람은 "퀴즈 없음"으로 바뀝니다.',
+            style: TextStyle(color: kMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('취소', style: TextStyle(color: kMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('삭제', style: TextStyle(color: kRed))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.onDeleteFolder(set.id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('폴더 삭제 실패: $e')),
+        );
+      }
+    }
+  }
+
+  void _openFolder(MaterialSet set) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => FolderDetailScreen(
-          subject: subject,
-          materials: widget.materials.where((m) => m.subject == subject).toList(),
-          onMaterialAdded: widget.onMaterialAdded,
-          onMaterialDeleted: widget.onMaterialDeleted,
+          set: set,
+          onChanged: () => widget.onSetChanged(set.id),
         ),
       ),
     );
@@ -86,8 +108,7 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _grouped;
-    final names = _folderNames;
+    final sets = widget.sets;
 
     return Scaffold(
       backgroundColor: kBg,
@@ -111,11 +132,11 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
                     ],
                   ),
                   GestureDetector(
-                    onTap: _createFolder,
+                    onTap: _creating ? null : _createFolder,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: kPrimary,
+                        color: _creating ? kMuted : kPrimary,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Row(children: [
@@ -130,25 +151,20 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
               ),
               const SizedBox(height: 20),
               Expanded(
-                child: names.isEmpty
+                child: sets.isEmpty
                     ? Center(
                   child: Text('폴더가 없어요. 우측 상단에서 만들어보세요.',
                       style: TextStyle(color: kMuted, fontSize: 13)),
                 )
                     : GridView.builder(
-                  itemCount: names.length,
+                  itemCount: sets.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.35,
                   ),
-                  itemBuilder: (_, i) {
-                    final name = names[i];
-                    final files = grouped[name] ?? [];
-                    final totalQuiz = files.fold<int>(0, (sum, m) => sum + m.quizCount);
-                    return _folderCard(name, files.length, totalQuiz);
-                  },
+                  itemBuilder: (_, i) => _folderCard(sets[i]),
                 ),
               ),
             ],
@@ -158,9 +174,10 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
     );
   }
 
-  Widget _folderCard(String name, int fileCount, int totalQuiz) {
+  Widget _folderCard(MaterialSet set) {
     return GestureDetector(
-      onTap: () => _openFolder(name),
+      onTap: () => _openFolder(set),
+      onLongPress: () => _confirmDeleteFolder(set),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -171,32 +188,22 @@ class _StudyMaterialScreenState extends State<StudyMaterialScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: kPrimary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.folder, color: kPrimary, size: 18),
-                ),
-                if (fileCount == 0)
-                  GestureDetector(
-                    onTap: () => setState(() => _emptyFolders.remove(name)),
-                    child: Icon(Icons.more_horiz, color: kMuted, size: 18),
-                  ),
-              ],
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: kPrimary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.folder, color: kPrimary, size: 18),
             ),
             const Spacer(),
-            Text(name,
+            Text(set.title,
                 style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
-            Text('PDF ${fileCount}개 · 문제 ${totalQuiz}개',
+            Text('PDF ${set.materialCount}개 · 길게 눌러 삭제',
                 style: TextStyle(color: kMuted, fontSize: 11)),
           ],
         ),

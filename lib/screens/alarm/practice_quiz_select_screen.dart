@@ -1,34 +1,35 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../models/alarm_model.dart';
-import '../../models/study_material.dart';
+import '../../models/material_set.dart';
 import 'alarm_ringing_screen.dart';
 
-/// 가상 문제풀이 - 알람이 울리는 걸 기다리지 않고 학습자료를 골라 바로 퀴즈를 풀어보는 화면.
+/// 가상 문제풀이 - 알람이 울리는 걸 기다리지 않고 바로 퀴즈를 풀어보는 화면.
+///
+/// 실제 문제는 서버가 "세트에 연결된 알람" 기준으로만 내려주기 때문에(POST /api/sessions는
+/// alarm_id가 필요) 세트를 직접 고르는 대신, 학습자료가 연결된 알람 중 하나를 골라
+/// 그 알람으로 연습 세션을 시작한다.
 class PracticeQuizSelectScreen extends StatelessWidget {
-  final List<StudyMaterial> materials;
+  final List<AlarmModel> alarms;
+  final List<MaterialSet> sets;
 
-  const PracticeQuizSelectScreen({super.key, required this.materials});
+  const PracticeQuizSelectScreen({super.key, required this.alarms, required this.sets});
 
-  void _start(BuildContext context, StudyMaterial material) {
-    final now = TimeOfDay.now();
-    final time =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  MaterialSet? _setFor(AlarmModel alarm) {
+    try {
+      return sets.firstWhere((s) => s.id == alarm.setId);
+    } catch (_) {
+      return null;
+    }
+  }
 
+  void _start(BuildContext context, AlarmModel alarm, MaterialSet set) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AlarmRingingScreen(
-          alarm: AlarmModel(
-            id: -1,
-            time: time,
-            label: '가상 문제풀이',
-            active: true,
-            days: const [],
-            quizSubject: material.subject,
-            materialId: material.id,
-          ),
-          material: material,
+          alarm: alarm,
+          set: set,
           practiceMode: true,
         ),
       ),
@@ -37,7 +38,7 @@ class PracticeQuizSelectScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = materials.where((m) => m.quizQuestions.isNotEmpty).toList();
+    final available = alarms.where((a) => a.setId != null && _setFor(a) != null).toList();
 
     return Scaffold(
       backgroundColor: kBg,
@@ -53,7 +54,7 @@ class PracticeQuizSelectScreen extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.all(24),
                   child: Text(
-                    '퀴즈가 있는 학습 자료가 없어요.\nAI학습 탭에서 PDF를 업로드해 보세요.',
+                    '학습자료가 연결된 알람이 없어요.\n알람 설정 탭에서 폴더를 연결한 알람을 먼저 만들어보세요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: kMuted, fontSize: 14),
                   ),
@@ -64,9 +65,10 @@ class PracticeQuizSelectScreen extends StatelessWidget {
                 itemCount: available.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, i) {
-                  final m = available[i];
+                  final alarm = available[i];
+                  final set = _setFor(alarm)!;
                   return GestureDetector(
-                    onTap: () => _start(context, m),
+                    onTap: () => _start(context, alarm, set),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -91,14 +93,14 @@ class PracticeQuizSelectScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(m.subject,
+                                Text(alarm.label,
                                     style: TextStyle(color: kPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
-                                Text(m.title,
+                                Text(set.title,
                                     style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 2),
-                                Text('문제 ${m.quizQuestions.length}개',
+                                Text('알람 시각 ${alarm.time}',
                                     style: TextStyle(color: kMuted, fontSize: 12)),
                               ],
                             ),

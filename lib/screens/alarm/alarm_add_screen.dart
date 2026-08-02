@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../models/alarm_model.dart';
 import '../../models/alarm_sound.dart';
+import '../../models/material_set.dart';
 import '../../models/study_material.dart';
 import '../../widgets/primary_button.dart';
 
 class AlarmAddScreen extends StatefulWidget {
-  final List<StudyMaterial> materials;
-  const AlarmAddScreen({super.key, required this.materials});
+  final List<MaterialSet> sets;
+  const AlarmAddScreen({super.key, required this.sets});
 
   @override
   State<AlarmAddScreen> createState() => _AlarmAddScreenState();
@@ -27,7 +28,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
   final _labelController = TextEditingController();
   final _days = ['일', '월', '화', '수', '목', '금', '토'];
   final Set<String> _selectedDays = {'월', '화', '수', '목', '금'};
-  StudyMaterial? _selectedMaterial;
+  MaterialSet? _selectedSet;
 
   String _soundId = 'default';
   String? _customSoundPath;
@@ -44,24 +45,23 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
 
   void _save() {
     final alarm = AlarmModel(
-      id: DateTime.now().millisecondsSinceEpoch,
+      id: 0, // 서버가 실제 id를 발급 - AppData.addAlarm이 응답으로 교체한다.
       time: '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
       label: _labelController.text.trim().isEmpty ? '알람' : _labelController.text.trim(),
       active: true,
       days: _selectedDays.toList(),
-      quizSubject: _selectedMaterial?.subject ?? '없음',
-      materialId: _selectedMaterial?.id,
+      setId: _selectedSet?.id,
       soundId: _soundId,
       customSoundPath: _customSoundPath,
     );
     Navigator.pop(context, alarm);
   }
 
-  /// 학습자료 선택이 바뀌면, 이전에 골라둔 "AI 생성 노래" 알람음이 다른 자료 것일 수
-  /// 있으니 기본 알람음으로 되돌린다 (자료 자체를 선택 해제한 경우도 동일하게 처리).
-  void _onMaterialSelected(StudyMaterial? material) {
+  /// 세트 선택이 바뀌면, 이전에 골라둔 "AI 생성 노래" 알람음이 다른 세트 것일 수
+  /// 있으니 기본 알람음으로 되돌린다 (세트 자체를 선택 해제한 경우도 동일하게 처리).
+  void _onSetSelected(MaterialSet? set) {
     setState(() {
-      _selectedMaterial = material;
+      _selectedSet = set;
       if (_soundId == kCustomSongSoundId) {
         _soundId = 'default';
         _customSoundPath = null;
@@ -71,7 +71,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
   }
 
   Future<void> _pickSound() async {
-    final material = _selectedMaterial;
+    final songMaterials = _selectedSet?.materialsWithSong ?? const <StudyMaterial>[];
     String? playingId;
 
     final result = await showModalBottomSheet<_SoundChoice>(
@@ -120,23 +120,25 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                         _SoundChoice(soundId: s.id, customPath: null, label: s.label),
                       ),
                     )),
-                if (material?.songPath != null)
+                for (final m in songMaterials)
                   ListTile(
                     leading: IconButton(
                       icon: Icon(
-                        playingId == kCustomSongSoundId ? Icons.stop_circle : Icons.play_circle_outline,
+                        playingId == 'song_${m.id}' ? Icons.stop_circle : Icons.play_circle_outline,
                         color: kPrimary,
                       ),
-                      onPressed: () => preview(kCustomSongSoundId, filePath: material!.songPath!),
+                      onPressed: () => preview('song_${m.id}', filePath: m.songPath!),
                     ),
-                    title: Text('🎵 ${material!.title} 노래 (AI 생성)', style: TextStyle(color: kFg)),
-                    trailing: _soundId == kCustomSongSoundId ? Icon(Icons.check, color: kPrimary) : null,
+                    title: Text('🎵 ${m.displayTitle} 노래 (AI 생성)', style: TextStyle(color: kFg)),
+                    trailing: _soundId == kCustomSongSoundId && _customSoundPath == m.songPath
+                        ? Icon(Icons.check, color: kPrimary)
+                        : null,
                     onTap: () => Navigator.pop(
                       sheetContext,
                       _SoundChoice(
                         soundId: kCustomSongSoundId,
-                        customPath: material.songPath,
-                        label: '${material.title} 노래',
+                        customPath: m.songPath,
+                        label: '${m.displayTitle} 노래',
                       ),
                     ),
                   ),
@@ -261,11 +263,11 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // 연결할 학습 자료
+                    // 연결할 학습 자료 (세트/폴더 단위)
                     Text('연결할 학습 자료',
                         style: TextStyle(color: kFg, fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
-                    if (widget.materials.isEmpty)
+                    if (widget.sets.isEmpty)
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -277,17 +279,17 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                           Icon(Icons.info_outline, color: kMuted, size: 16),
                           SizedBox(width: 8),
                           Expanded(
-                            child: Text('저장된 학습자료가 없습니다.\nAI학습 탭에서 먼저 추가해주세요.',
+                            child: Text('저장된 학습자료 폴더가 없습니다.\nAI학습 탭에서 먼저 추가해주세요.',
                                 style: TextStyle(color: kMuted, fontSize: 12, height: 1.5)),
                           ),
                         ]),
                       )
                     else ...[
-                      _materialTile(null),
+                      _setTile(null),
                       const SizedBox(height: 8),
-                      ...widget.materials.map((m) => Padding(
+                      ...widget.sets.map((s) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: _materialTile(m),
+                        child: _setTile(s),
                       )),
                     ],
                     const SizedBox(height: 24),
@@ -346,12 +348,11 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
     );
   }
 
-  Widget _materialTile(StudyMaterial? material) {
-    final isSelected = _selectedMaterial?.id == material?.id &&
-        (_selectedMaterial == null) == (material == null);
+  Widget _setTile(MaterialSet? set) {
+    final isSelected = _selectedSet?.id == set?.id && (_selectedSet == null) == (set == null);
 
     return GestureDetector(
-      onTap: () => _onMaterialSelected(material),
+      onTap: () => _onSetSelected(set),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -362,7 +363,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
             width: isSelected ? 1.5 : 1,
           ),
         ),
-        child: material == null
+        child: set == null
             ? Row(children: [
           Icon(Icons.not_interested, color: isSelected ? kPrimary : kMuted, size: 18),
           const SizedBox(width: 10),
@@ -381,18 +382,18 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Icon(Icons.description_outlined, color: kPrimary, size: 16),
+            child: Icon(Icons.folder_outlined, color: kPrimary, size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(material.title,
+              Text(set.title,
                   style: TextStyle(
                     color: isSelected ? kFg : kFg.withOpacity(0.8),
                     fontSize: 13, fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis),
-              Text('최근 업로드: ${material.date}',
+              Text('PDF ${set.materialCount}개',
                   style: TextStyle(color: kMuted, fontSize: 11)),
             ]),
           ),

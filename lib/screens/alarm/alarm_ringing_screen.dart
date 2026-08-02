@@ -2,26 +2,34 @@ import 'package:alarm/alarm.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../models/alarm_model.dart';
-import '../../models/study_material.dart';
-import '../../models/quiz_question.dart';
+import '../../models/material_set.dart';
+import '../../models/quiz_session.dart';
 import '../../models/quiz_answer_result.dart';
 import '../../services/alarm_scheduler.dart';
+import '../../services/sessions_service.dart';
+import '../../services/api_client.dart';
 import 'motion_mission_screen.dart';
 import 'today_report_screen.dart';
 
+enum _Phase { ringing, loadingQuiz, quiz, quizError }
+
 /// 알람이 울릴 때 표시되는 화면 (1단계: 울림, 2단계: 퀴즈).
-/// 퀴즈를 다 풀면 정답률에 따라 동작미션(motion_mission_screen)을 거치거나
-/// 바로 오늘의 리포트(today_report_screen)로 넘어간다.
+///
+/// 퀴즈 문제는 이제 로컬에 미리 들고 있던 게 아니라 알람이 울리는 시점에 서버
+/// (POST /api/sessions)에서 받아온다. 서버는 정답이 빠진 문제만 내려주고, 한 문제씩
+/// 제출해야(POST .../attempts) 정답 여부/정답/해설을 알려준다. 그리고 "필요한 정답 수"를
+/// 다 못 채우면(즉, 하나라도 틀리면) 알람 해제(POST .../dismiss)가 거부되므로, 그 경우
+/// 새 세션을 다시 시작해서(새 문제로) 다시 도전하게 만든다 (server/app/api/sessions.py 설계).
 class AlarmRingingScreen extends StatefulWidget {
   final AlarmModel alarm;
-  final StudyMaterial? material;
+  final MaterialSet? set;
   final int streakDays; // 오늘의 리포트에 표시할 연속 기상 일수
   final bool practiceMode; // true면 알람 울림 단계 없이 바로 퀴즈로 시작 (가상 문제풀이용)
 
   const AlarmRingingScreen({
     super.key,
     required this.alarm,
-    this.material,
+    this.set,
     this.streakDays = 0,
     this.practiceMode = false,
   });
@@ -31,20 +39,23 @@ class AlarmRingingScreen extends StatefulWidget {
 }
 
 class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
-  bool _quizMode = false;
-  List<QuizQuestion>? _questions;
+  _Phase _phase = _Phase.ringing;
+  QuizSession? _session;
   int _current = 0;
   int? _selected;
   bool _answered = false;
+  AttemptResult? _lastResult;
+  String? _quizError;
+
   final List<QuizAnswerResult> _results = [];
+  final Map<String, int> _wrongTopicTally = {};
   final Stopwatch _stopwatch = Stopwatch()..start();
 
   @override
   void initState() {
     super.initState();
-    if (widget.practiceMode && widget.material != null && widget.material!.quizQuestions.isNotEmpty) {
-      _questions = widget.material!.quizQuestions;
-      _quizMode = true;
+    if (widget.practiceMode && widget.set != null) {
+      _startQuiz();
     }
   }
 
@@ -70,61 +81,121 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _startQuiz() {
-    if (widget.material == null) {
-      Navigator.pop(context);
-      return;
-    }
-    final questions = widget.material!.quizQuestions;
-    if (questions.isEmpty) {
-      Navigator.pop(context);
+  Future<void> _startQuiz() async {
+    if (widget.set == null) {
+      if (!widget.practiceMode) _stopAlarmAndClose();
       return;
     }
     setState(() {
-      _questions = questions;
-      _quizMode = true;
+      _phase = _Phase.loadingQuiz;
+      _quizError = null;
     });
+    try {
+      final session = await SessionsService.start(widget.alarm.id);
+      if (!mounted) return;
+      setState(() {
+        _session = session;
+        _current = 0;
+        _selected = null;
+        _answered = false;
+        _lastResult = null;
+        _phase = _Phase.quiz;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      if (e is ApiException && e.errorCode == 'NO_QUESTIONS_AVAILABLE') {
+        // 아직 AI가 문제를 하나도 못 만들어둔 상태 - 퀴즈 없이 그냥 끄기로 대체.
+        if (widget.practiceMode) {
+          Navigator.pop(context);
+        } else {
+          _stopAlarmAndClose();
+        }
+        return;
+      }
+      setState(() {
+        _quizError = e.toString().replaceAll('Exception: ', '');
+        _phase = _Phase.quizError;
+      });
+    }
   }
 
-  void _selectOption(int index) {
-    if (_answered) return;
-    final q = _questions![_current];
-    final isCorrect = index == q.correctIndex;
+  Future<void> _selectOption(int index) async {
+    if (_answered || _session == null) return;
+    final q = _session!.questions[_current];
 
-    // 실제 통계에 반영 - 오늘 만든 recordAnswer가 여기서 처음 실전 호출됨
-    widget.material?.recordAnswer(isCorrect: isCorrect, topic: q.topic);
+    setState(() => _selected = index); // 채점 대기 중임을 바로 보여줌 (버튼은 아래서 잠금)
 
-    _results.add(QuizAnswerResult(
-      question: q.question,
-      correctAnswerText: q.options[q.correctIndex],
-      isCorrect: isCorrect,
-    ));
+    try {
+      final result = await SessionsService.submitAttempt(
+        sessionId: _session!.sessionId,
+        questionId: q.questionId,
+        source: q.source,
+        selectedAnswer: index,
+        timeTakenSeconds: _stopwatch.elapsed.inSeconds,
+      );
 
-    setState(() {
-      _selected = index;
-      _answered = true;
-    });
+      if (!result.isCorrect) {
+        _wrongTopicTally[q.topic] = (_wrongTopicTally[q.topic] ?? 0) + 1;
+      }
+      _results.add(QuizAnswerResult(
+        question: q.content,
+        correctAnswerText: q.choices[result.correctAnswer],
+        isCorrect: result.isCorrect,
+      ));
+
+      if (!mounted) return;
+      setState(() {
+        _lastResult = result;
+        _answered = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _selected = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('채점 실패: $e')),
+      );
+    }
   }
 
   void _proceed() {
-    if (_current < _questions!.length - 1) {
+    if (_current < _session!.questions.length - 1) {
       setState(() {
         _current++;
         _selected = null;
         _answered = false;
+        _lastResult = null;
       });
       return;
     }
-    _finishQuiz();
+    _tryDismiss();
+  }
+
+  Future<void> _tryDismiss() async {
+    try {
+      await SessionsService.dismiss(_session!.sessionId, dismissMethod: 'quiz');
+      _finishQuiz();
+    } catch (e) {
+      if (!mounted) return;
+      if (e is ApiException && e.errorCode == 'QUIZ_NOT_COMPLETED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('틀린 문제가 있어요. 새 문제로 다시 풀어볼게요!')),
+        );
+        _startQuiz(); // 새 세션으로 다시 도전
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('알람 해제 실패: $e')),
+      );
+    }
   }
 
   void _finishQuiz() {
     _stopAndReschedule(); // 퀴즈를 다 풀었으니 알람 소리 정지 + 다음 회차 예약
     _stopwatch.stop();
-    final total = _results.length;
+
     final wrongCount = _results.where((r) => !r.isCorrect).length;
-    // 절반 넘게 틀리면 동작미션 - 예: 3문제 중 2개 이상 오답
-    final needsMission = wrongCount > total ~/ 2;
+    // 절반 넘게 틀리면 동작미션 - 예: 누적 문제 중 절반 이상 오답
+    final needsMission = _results.isNotEmpty && wrongCount > _results.length ~/ 2;
 
     if (needsMission) {
       Navigator.push(
@@ -141,7 +212,16 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
     }
   }
 
+  String? get _weakestTopic {
+    if (_wrongTopicTally.isEmpty) return null;
+    return _wrongTopicTally.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
   void _goToReport() {
+    if (widget.practiceMode) {
+      Navigator.pop(context);
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -150,7 +230,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
           elapsed: _stopwatch.elapsed,
           results: _results,
           streakDays: widget.streakDays,
-          weakestTopic: widget.material?.weakestTopic,
+          weakestTopic: _weakestTopic,
         ),
       ),
     );
@@ -158,7 +238,16 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return _quizMode ? _buildQuizView() : _buildRingingView();
+    switch (_phase) {
+      case _Phase.ringing:
+        return _buildRingingView();
+      case _Phase.loadingQuiz:
+        return _buildLoadingView();
+      case _Phase.quiz:
+        return _buildQuizView();
+      case _Phase.quizError:
+        return _buildErrorView();
+    }
   }
 
   // ── 1단계: 알람 울림 (전체 파란 화면) ──────────────────────
@@ -197,7 +286,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: GestureDetector(
-                onTap: widget.material != null ? _startQuiz : _stopAlarmAndClose,
+                onTap: widget.set != null ? _startQuiz : _stopAlarmAndClose,
                 child: Container(
                   height: 56, width: double.infinity,
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -205,9 +294,9 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(widget.material != null ? '문제 풀고 알람 끄기' : '알람 끄기',
+                      Text(widget.set != null ? '문제 풀고 알람 끄기' : '알람 끄기',
                           style: TextStyle(color: kPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
-                      if (widget.material != null) ...[
+                      if (widget.set != null) ...[
                         const SizedBox(width: 6),
                         Icon(Icons.arrow_forward, color: kPrimary, size: 18),
                       ],
@@ -222,10 +311,58 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
     );
   }
 
+  Widget _buildLoadingView() {
+    return Scaffold(
+      backgroundColor: kBg,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('문제를 불러오고 있어요...', style: TextStyle(color: kMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Scaffold(
+      backgroundColor: kBg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('문제를 불러오지 못했어요.\n$_quizError',
+                  textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: _startQuiz,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(14)),
+                  child: Text('다시 시도', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: widget.practiceMode ? () => Navigator.pop(context) : _stopAlarmAndClose,
+                child: Text('그냥 끄기', style: TextStyle(color: kMuted)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── 2단계: 퀴즈 화면 ──────────────────────────────────────
   Widget _buildQuizView() {
-    final q = _questions![_current];
-    final total = _questions!.length;
+    final q = _session!.questions[_current];
+    final total = _session!.questions.length;
 
     return Scaffold(
       backgroundColor: kBg,
@@ -240,14 +377,14 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                 children: [
                   IconButton(
                     icon: Icon(Icons.close, color: kFg),
-                    onPressed: _stopAlarmAndClose,
+                    onPressed: widget.practiceMode ? () => Navigator.pop(context) : _stopAlarmAndClose,
                   ),
                   Text('문제 ${_current + 1} / $total',
                       style: TextStyle(color: kFg, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 48), // 균형용 (X버튼과 대칭)
                 ],
               ),
-              Text(widget.material?.subject ?? widget.alarm.quizSubject,
+              Text(q.topic,
                   style: TextStyle(color: kPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               ClipRRect(
@@ -268,13 +405,13 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: kBorder),
                 ),
-                child: Text(q.question, style: TextStyle(color: kFg, fontSize: 17, height: 1.5)),
+                child: Text(q.content, style: TextStyle(color: kFg, fontSize: 17, height: 1.5)),
               ),
               const SizedBox(height: 20),
 
               Expanded(
                 child: ListView(
-                  children: List.generate(q.options.length, (i) {
+                  children: List.generate(q.choices.length, (i) {
                     final letter = String.fromCharCode(65 + i); // A, B, C, D
 
                     Color border = kBorder;
@@ -282,8 +419,8 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                     Color circleColor = kMuted;
                     Widget? trailing;
 
-                    if (_answered) {
-                      if (i == q.correctIndex) {
+                    if (_answered && _lastResult != null) {
+                      if (i == _lastResult!.correctAnswer) {
                         border = const Color(0xFF22C55E);
                         bg = const Color(0xFF22C55E).withOpacity(0.08);
                         circleColor = const Color(0xFF22C55E);
@@ -313,7 +450,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                               child: Text(letter, style: TextStyle(color: circleColor, fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 12),
-                            Expanded(child: Text(q.options[i], style: TextStyle(color: kFg, fontSize: 15))),
+                            Expanded(child: Text(q.choices[i], style: TextStyle(color: kFg, fontSize: 15))),
                             if (trailing != null) trailing,
                           ]),
                         ),
@@ -323,13 +460,16 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                 ),
               ),
 
-              if (_answered)
+              if (_answered && _lastResult != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    _selected == q.correctIndex ? '정답이에요! 바로 다음으로 넘어가요' : '오답이에요. 정답은 ${q.options[q.correctIndex]}입니다',
+                    _lastResult!.isCorrect
+                        ? '정답이에요! 바로 다음으로 넘어가요'
+                        : '오답이에요. 정답은 ${q.choices[_lastResult!.correctAnswer]}입니다'
+                            '${_lastResult!.explanation != null ? '\n${_lastResult!.explanation}' : ''}',
                     style: TextStyle(
-                      color: _selected == q.correctIndex ? const Color(0xFF22C55E) : kRed,
+                      color: _lastResult!.isCorrect ? const Color(0xFF22C55E) : kRed,
                       fontSize: 13,
                     ),
                   ),
@@ -346,7 +486,7 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     !_answered
-                        ? '정답 확인'
+                        ? (_selected != null ? '채점 중...' : '보기를 선택하세요')
                         : (_current < total - 1 ? '다음 문제 →' : '결과 확인하기 →'),
                     style: TextStyle(
                       color: _answered ? Colors.white : kMuted,
