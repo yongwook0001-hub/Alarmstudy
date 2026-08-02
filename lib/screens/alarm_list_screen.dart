@@ -104,25 +104,56 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(alarm.time,
-                    style: TextStyle(color: fg, fontSize: 32, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text(_quizLabel(alarm),
-                    style: TextStyle(color: fg.withOpacity(isOn ? 1 : 0.7), fontSize: 13)),
-                const SizedBox(height: 4),
-                Text(alarm.days.join(' '),
-                    style: TextStyle(color: kMuted.withOpacity(isOn ? 1 : 0.6), fontSize: 12)),
-              ],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                alarm.time,
+                style: TextStyle(
+                  fontSize: 40, fontWeight: FontWeight.bold,
+                  color: alarm.active ? kFg : kMuted,
+                ),
+              ),
+              Switch(
+                value: alarm.active,
+                activeColor: kPrimary,
+                onChanged: (v) => setState(() => alarm.active = v),
+              ),
+            ],
           ),
-          Switch(
-            value: alarm.active,
-            activeColor: kPrimary,
-            onChanged: (v) => setState(() => alarm.active = v),
+          Text(alarm.label, style: const TextStyle(color: kMuted, fontSize: 14)),
+          const SizedBox(height: 12),
+          Row(
+            children: _days.map((d) {
+              final isOn = alarm.days.contains(d);
+              return Container(
+                margin: const EdgeInsets.only(right: 6),
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: isOn ? kPrimary : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: isOn ? kPrimary : kMuted.withOpacity(0.4)),
+                ),
+                alignment: Alignment.center,
+                child: Text(d, style: TextStyle(
+                  color: isOn ? Colors.white : kMuted, fontSize: 11,
+                )),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: kBorder),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(children: [
+                const Icon(Icons.psychology, color: kPrimary, size: 16),
+                const SizedBox(width: 6),
+                Text('퀴즈 과목: ', style: const TextStyle(color: kMuted, fontSize: 13)),
+                Text(alarm.quizSubject, style: const TextStyle(color: kPrimaryLight, fontSize: 13)),
+              ]),
+              const Icon(Icons.delete_outline, color: kMuted, size: 20),
+            ],
           ),
         ],
       ),

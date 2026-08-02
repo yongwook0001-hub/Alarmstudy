@@ -54,7 +54,7 @@ class AiSummaryScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: kPrimary.withOpacity(0.15),
+                color: kPrimary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(material.subject, style: TextStyle(color: kPrimaryLight, fontSize: 12)),
@@ -69,9 +69,9 @@ class AiSummaryScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: kPrimary.withOpacity(0.15),
+                color: kPrimary.withValues(alpha:0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kPrimary.withOpacity(0.3)),
+                border: Border.all(color: kPrimary.withValues(alpha: 0.3)),
               ),
               child: Row(children: [
                 Icon(Icons.auto_awesome, color: kPrimary, size: 16),
@@ -97,7 +97,7 @@ class AiSummaryScreen extends StatelessWidget {
                     Container(
                       width: 28, height: 28,
                       decoration: BoxDecoration(
-                        color: kPrimary.withOpacity(0.3),
+                        color: kPrimary.withValues(alpha:0.3),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,

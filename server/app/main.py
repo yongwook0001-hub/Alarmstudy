@@ -9,30 +9,58 @@
 # users/refresh_tokens 포함 전체 DB 스키마(alarms, material_sets, questions 등)는
 # 팀원이 app/models/, app/db/, alembic/로 이미 구성해뒀다.
 import asyncio
+import contextlib
 import json
 import os
+from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
+from app.api.alarms import router as alarms_router
 from app.api.auth import router as auth_router
+from app.api.materials import router as materials_router
+from app.api.sessions import router as sessions_router
+from app.api.sets import router as sets_router
 from app.api.song import router as song_router
+from app.api.stats import router as stats_router
 from app.core.errors import AppError
+from app.db.session import AsyncSessionLocal
+from app.workers import generation_worker
 
 # .env 파일에서 환경 변수(API 키) 로드
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
 
 # front 브랜치에서 쓰던 모델명을 그대로 유지 (gemini-1.5-flash보다 최신/무료 티어에 적합)
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
-app = FastAPI(title="AlarmStudy AI Server")
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    async with AsyncSessionLocal() as db:
+        await generation_worker.recover_stale_processing_jobs(db)
+        await db.commit()
+
+    worker_task = asyncio.create_task(generation_worker.run_poll_loop())
+    try:
+        yield
+    finally:
+        # 진행 중이던 job은 processing에 남을 수 있다 — 다음 기동 시 위 복구 로직이 되돌린다.
+        worker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await worker_task
+
+
+app = FastAPI(title="AlarmStudy AI Server", lifespan=lifespan)
 
 
 @app.exception_handler(AppError)
@@ -41,6 +69,11 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 app.include_router(auth_router, prefix="/api")
+app.include_router(sets_router, prefix="/api")
+app.include_router(materials_router, prefix="/api")
+app.include_router(alarms_router, prefix="/api")
+app.include_router(sessions_router, prefix="/api")
+app.include_router(stats_router, prefix="/api")
 app.include_router(song_router, prefix="/api")
 
 
@@ -82,8 +115,8 @@ quiz는 정확히 3개, a는 0~3 정수, t는 문제가 다루는 세부 개념(
 """
 
 
-def _build_model() -> genai.GenerativeModel:
-    return genai.GenerativeModel(GEMINI_MODEL)
+async def _generate_content(contents) -> types.GenerateContentResponse:
+    return await _gemini_client.aio.models.generate_content(model=GEMINI_MODEL, contents=contents)
 
 
 def _parse_response(raw_text: str, subject: str) -> dict:
@@ -148,7 +181,7 @@ async def summarize_material(request: SummarizeRequest):
     prompt = f"학습자료:\n{trimmed}\n\n{_RESPONSE_FORMAT}"
 
     try:
-        response = await asyncio.to_thread(_build_model().generate_content, prompt)
+        response = await _generate_content(prompt)
         return _parse_response(response.text or "", request.subject)
     except (json.JSONDecodeError, KeyError) as e:
         raise HTTPException(status_code=502, detail=f"AI 응답 파싱 실패: {e}")
@@ -168,9 +201,8 @@ async def summarize_pdf(subject: str = Form(...), file: UploadFile = File(...)):
 
     for attempt in (1, 2):
         try:
-            response = await asyncio.to_thread(
-                _build_model().generate_content,
-                [{"mime_type": "application/pdf", "data": pdf_bytes}, prompt],
+            response = await _generate_content(
+                [types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"), prompt],
             )
             print(f"[AiService] PDF 응답 수신 — {len(response.text or '')}자")
             return _parse_response(response.text or "", subject)
