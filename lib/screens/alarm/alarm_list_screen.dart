@@ -21,6 +21,9 @@ class AlarmListScreen extends StatefulWidget {
 }
 
 class _AlarmListScreenState extends State<AlarmListScreen> {
+  // 요일 원형 표시용 - 실제 반복요일(alarm.days)과 무관하게 항상 일~토 순서로 그린다.
+  static const _weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
   @override
   Widget build(BuildContext context) {
     final activeCount = widget.alarms.where((a) => a.active).length;
@@ -92,9 +95,6 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
   }
 
   Widget _alarmCard(AlarmModel alarm) {
-    final isOn = alarm.active;
-    final fg = isOn ? kFg : kMuted;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -103,31 +103,62 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kBorder),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(alarm.time,
-                    style: TextStyle(color: fg, fontSize: 32, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text(_quizLabel(alarm),
-                    style: TextStyle(color: fg.withOpacity(isOn ? 1 : 0.7), fontSize: 13)),
-                const SizedBox(height: 4),
-                Text(alarm.days.join(' '),
-                    style: TextStyle(color: kMuted.withOpacity(isOn ? 1 : 0.6), fontSize: 12)),
-              ],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                alarm.time,
+                style: TextStyle(
+                  fontSize: 40, fontWeight: FontWeight.bold,
+                  color: alarm.active ? kFg : kMuted,
+                ),
+              ),
+              Switch(
+                value: alarm.active,
+                activeColor: kPrimary,
+                onChanged: (v) {
+                  setState(() => alarm.active = v);
+                  widget.onToggle?.call(alarm);
+                },
+              ),
+            ],
           ),
-          Switch(
-            value: alarm.active,
-            activeColor: kPrimary,
-            onChanged: (v) {
-              setState(() => alarm.active = v);
-              widget.onToggle?.call(alarm);
-            },
+          Text(alarm.label, style: TextStyle(color: kMuted, fontSize: 14)),
+          const SizedBox(height: 12),
+          Row(
+            children: _weekdays.map((d) {
+              final isOn = alarm.days.contains(d);
+              return Container(
+                margin: const EdgeInsets.only(right: 6),
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: isOn ? kPrimary : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: isOn ? kPrimary : kMuted.withOpacity(0.4)),
+                ),
+                alignment: Alignment.center,
+                child: Text(d, style: TextStyle(
+                  color: isOn ? Colors.white : kMuted, fontSize: 11,
+                )),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          Divider(color: kBorder),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(children: [
+                Icon(Icons.psychology, color: kPrimary, size: 16),
+                const SizedBox(width: 6),
+                Text('퀴즈 과목: ', style: TextStyle(color: kMuted, fontSize: 13)),
+                Text(_quizLabel(alarm), style: TextStyle(color: kPrimaryLight, fontSize: 13)),
+              ]),
+              Icon(Icons.delete_outline, color: kMuted, size: 20),
+            ],
           ),
         ],
       ),

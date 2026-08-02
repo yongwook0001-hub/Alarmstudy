@@ -1,9 +1,14 @@
 from functools import lru_cache
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+# boto3는 pydantic-settings가 아니라 os.environ의 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY를
+# 기본 자격증명 체인으로 직접 읽으므로, 여기서 명시적으로 .env를 프로세스 환경에 로드해둔다.
+load_dotenv(_ENV_FILE)
 
 
 class Settings(BaseSettings):
@@ -21,6 +26,13 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str
     google_oauth_client_id: str
+
+    aws_region: str
+    s3_bucket_name: str
+    # AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY는 여기 필드로 두지 않는다 — boto3 기본
+    # 자격증명 체인(환경변수)이 직접 읽도록 둔다 (위 load_dotenv로 os.environ에 이미 있음).
+
+    gemini_api_key: str
 
     @property
     def sqlalchemy_database_url(self) -> str:

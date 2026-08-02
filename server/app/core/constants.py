@@ -15,7 +15,7 @@ BUFFER_TARGET_PER_SET = 20                   # 워커: target = 20 - 현재 버�
 BUFFER_LOW_THRESHOLD = 10                    # 세션 시작 시 잔여 < 10 → buffer_low job
 
 # --- 세션 ---
-REQUIRED_CORRECT_COUNT = 5                   # required_count로 서버가 내려줌
+REQUIRED_CORRECT_COUNT = 3                   # 알람 해제에 필요한 정답 수 (팀 합의)
 
 # --- 워커 ---
 WORKER_POLL_INTERVAL_SECONDS = 10
