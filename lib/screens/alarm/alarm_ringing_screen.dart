@@ -167,49 +167,63 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
       });
       return;
     }
-    _tryDismiss();
+    _finishRound();
   }
 
-  Future<void> _tryDismiss() async {
-    try {
-      await SessionsService.dismiss(_session!.sessionId, dismissMethod: 'quiz');
-      _finishQuiz();
-    } catch (e) {
-      if (!mounted) return;
-      if (e is ApiException && e.errorCode == 'QUIZ_NOT_COMPLETED') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('틀린 문제가 있어요. 새 문제로 다시 풀어볼게요!')),
-        );
-        _startQuiz(); // 새 세션으로 다시 도전
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('알람 해제 실패: $e')),
-      );
-    }
-  }
+  /// 한 라운드(현재 세션의 문제들)를 다 풀고 난 뒤 통과 여부를 이 앱이 직접 판정한다.
+  /// "3문제 중 2문제 이상"처럼 과반수 이상 맞히면 통과 - 서버의 'quiz' 해제는 전부
+  /// 정답이어야만 허용하므로, 과반수는 넘었지만 전부는 아닌 경우 'mission' 해제 방식으로
+  /// 대체한다(서버가 정답 여부를 검사하지 않는 해제 경로 - server/app/api/sessions.py 주석
+  /// "모션 판정은 앱 로컬 책임" 참고). 과반수를 못 넘기면 실제 동작 미션 화면으로 보낸다.
+  void _finishRound() {
+    final total = _session!.questions.length;
+    final correctCount = _results.where((r) => r.isCorrect).length;
+    final passed = total > 0 && correctCount >= (total / 2).ceil();
 
-  void _finishQuiz() {
-    _stopAndReschedule(); // 퀴즈를 다 풀었으니 알람 소리 정지 + 다음 회차 예약
-    _stopwatch.stop();
-
-    final wrongCount = _results.where((r) => !r.isCorrect).length;
-    // 절반 넘게 틀리면 동작미션 - 예: 누적 문제 중 절반 이상 오답
-    final needsMission = _results.isNotEmpty && wrongCount > _results.length ~/ 2;
-
-    if (needsMission) {
+    if (passed) {
+      _dismissAndFinish(preferredMethod: 'quiz');
+    } else {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => MotionMissionScreen(
-            wrongCount: wrongCount,
-            onComplete: () => _goToReport(),
+            wrongCount: total - correctCount,
+            onComplete: () => _dismissAndFinish(preferredMethod: 'mission'),
           ),
         ),
       );
-    } else {
-      _goToReport();
     }
+  }
+
+  Future<void> _dismissAndFinish({required String preferredMethod}) async {
+    try {
+      await SessionsService.dismiss(_session!.sessionId, dismissMethod: preferredMethod);
+    } catch (e) {
+      if (preferredMethod == 'quiz' && e is ApiException && e.errorCode == 'QUIZ_NOT_COMPLETED') {
+        // 과반수는 통과했지만 서버가 요구하는 "전부 정답"은 못 채운 경우 - 정답 여부를
+        // 검사하지 않는 mission 방식으로 대체 해제한다.
+        try {
+          await SessionsService.dismiss(_session!.sessionId, dismissMethod: 'mission');
+        } catch (e2) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('알람 해제 실패: $e2')));
+          }
+          return;
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('알람 해제 실패: $e')));
+        }
+        return;
+      }
+    }
+    _finishQuiz();
+  }
+
+  void _finishQuiz() {
+    _stopAndReschedule(); // 알람 해제가 실제로 승인됐으니 알람 소리 정지 + 다음 회차 예약
+    _stopwatch.stop();
+    _goToReport();
   }
 
   String? get _weakestTopic {

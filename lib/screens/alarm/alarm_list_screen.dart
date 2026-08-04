@@ -9,6 +9,7 @@ class AlarmListScreen extends StatefulWidget {
   final VoidCallback onAdd;
   final Future<void> Function(AlarmModel alarm)? onToggle;
   final Future<void> Function(AlarmModel alarm)? onDelete;
+  final void Function(AlarmModel alarm)? onEdit; // 알람 카드 탭 시 수정 화면으로 이동
   const AlarmListScreen({
     super.key,
     required this.alarms,
@@ -16,6 +17,7 @@ class AlarmListScreen extends StatefulWidget {
     required this.onAdd,
     this.onToggle,
     this.onDelete,
+    this.onEdit,
   });
 
   @override
@@ -120,7 +122,11 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
   }
 
   Widget _alarmCard(AlarmModel alarm) {
-    return Container(
+    return GestureDetector(
+      // 카드 아무 곳이나 탭하면 수정 화면으로 - Switch/삭제 아이콘은 각자 자기 탭을
+      // 먼저 처리하므로 여길 감싸도 그 둘의 동작과 충돌하지 않는다.
+      onTap: widget.onEdit != null ? () => widget.onEdit!(alarm) : null,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -196,6 +202,7 @@ class _AlarmListScreenState extends State<AlarmListScreen> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

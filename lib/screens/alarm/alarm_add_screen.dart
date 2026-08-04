@@ -9,7 +9,10 @@ import '../../widgets/primary_button.dart';
 
 class AlarmAddScreen extends StatefulWidget {
   final List<MaterialSet> sets;
-  const AlarmAddScreen({super.key, required this.sets});
+  // null이면 새 알람 추가, 값이 있으면 그 알람을 수정하는 모드로 진입한다
+  // (alarm_list_screen.dart에서 알람 카드를 탭했을 때 넘겨줌).
+  final AlarmModel? existing;
+  const AlarmAddScreen({super.key, required this.sets, this.existing});
 
   @override
   State<AlarmAddScreen> createState() => _AlarmAddScreenState();
@@ -36,6 +39,47 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
 
   final _previewPlayer = AudioPlayer();
 
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    if (existing == null) return;
+
+    // 수정 모드 - 기존 알람 값으로 초기 상태를 채운다.
+    final parts = existing.time.split(':');
+    _time = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    _labelController.text = existing.label;
+    _selectedDays
+      ..clear()
+      ..addAll(existing.days);
+
+    MaterialSet? matchedSet;
+    for (final s in widget.sets) {
+      if (s.id == existing.setId) {
+        matchedSet = s;
+        break;
+      }
+    }
+    _selectedSet = matchedSet;
+
+    _soundId = existing.soundId;
+    _customSoundPath = existing.customSoundPath;
+    if (existing.soundId == kCustomSongSoundId && existing.customSoundPath != null) {
+      StudyMaterial? matchedSong;
+      for (final m in matchedSet?.materialsWithSong ?? const <StudyMaterial>[]) {
+        if (m.songPath == existing.customSoundPath) {
+          matchedSong = m;
+          break;
+        }
+      }
+      _soundLabel = matchedSong != null ? '${matchedSong.displayTitle} 노래' : '커스텀 노래';
+    } else {
+      _soundLabel = findAlarmSound(existing.soundId).label;
+    }
+  }
+
   @override
   void dispose() {
     _labelController.dispose();
@@ -45,10 +89,12 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
 
   void _save() {
     final alarm = AlarmModel(
-      id: 0, // 서버가 실제 id를 발급 - AppData.addAlarm이 응답으로 교체한다.
+      // 수정 모드면 기존 id를 그대로 유지해야 PATCH가 정확한 알람을 가리킨다.
+      // 새 알람이면 0(임시값) - 서버가 실제 id를 발급하고 AppData.addAlarm이 응답으로 교체한다.
+      id: widget.existing?.id ?? 0,
       time: '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
       label: _labelController.text.trim().isEmpty ? '알람' : _labelController.text.trim(),
-      active: true,
+      active: widget.existing?.active ?? true,
       days: _selectedDays.toList(),
       setId: _selectedSet?.id,
       soundId: _soundId,
@@ -178,7 +224,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 4),
-                  Text('알람 추가',
+                  Text(_isEdit ? '알람 수정' : '알람 추가',
                       style: TextStyle(color: kFg, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -192,7 +238,14 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     // 시간 선택 - 박스형
                     GestureDetector(
                       onTap: () async {
-                        final t = await showTimePicker(context: context, initialTime: _time);
+                        // TimePickerEntryMode.dial로 시작하되, 다이얼로그 좌상단의 키보드 아이콘을
+                        // 누르면 시:분을 직접 숫자로 입력하는 키패드 모드로 전환할 수 있다
+                        // (Flutter Material TimePicker의 기본 제공 기능).
+                        final t = await showTimePicker(
+                          context: context,
+                          initialTime: _time,
+                          initialEntryMode: TimePickerEntryMode.dial,
+                        );
                         if (t != null) setState(() => _time = t);
                       },
                       child: Center(
@@ -322,7 +375,7 @@ class _AlarmAddScreenState extends State<AlarmAddScreen> {
                     const SizedBox(height: 28),
 
                     // 저장하기 버튼
-                    PrimaryButton(label: '저장하기', onTap: _save),
+                    PrimaryButton(label: _isEdit ? '수정 완료' : '저장하기', onTap: _save),
                   ],
                 ),
               ),

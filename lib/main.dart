@@ -256,6 +256,18 @@ class _MainShellState extends State<MainShell> {
             await _appData.deleteAlarm(alarm.id);
             if (mounted) setState(() {});
           },
+          onEdit: (alarm) async {
+            final updated = await Navigator.push<AlarmModel>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AlarmAddScreen(sets: _appData.sets, existing: alarm),
+              ),
+            );
+            if (updated != null) {
+              await _appData.updateAlarm(updated);
+              if (mounted) setState(() {});
+            }
+          },
         );
 
       case 2:

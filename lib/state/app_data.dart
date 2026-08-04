@@ -1,7 +1,9 @@
 import '../models/alarm_model.dart';
+import '../models/alarm_sound.dart';
 import '../models/material_set.dart';
 import '../models/study_material.dart';
 import '../services/alarm_scheduler.dart';
+import '../services/alarm_sound_store.dart';
 import '../services/alarms_service.dart';
 import '../services/sets_service.dart';
 import '../services/song_store.dart';
@@ -33,6 +35,14 @@ class AppData {
     loadError = null;
     try {
       final loadedAlarms = await AlarmsService.list();
+      // customSoundPath는 서버에 없는 로컬 전용 값이라 AlarmModel.fromJson에는
+      // 안 들어있다 - AlarmSoundStore(기기 로컬)에서 복원해야 재시작 후에도
+      // AI 노래 알람음 연결이 유지된다.
+      for (final a in loadedAlarms) {
+        if (a.soundId == kCustomSongSoundId) {
+          a.customSoundPath = await AlarmSoundStore.get(a.id);
+        }
+      }
       final setList = await SetsService.list();
       // 목록 API(GET /api/sets)는 자료 개수만 알려주고 내용은 안 주므로, 폴더 카드/알람 추가
       // 화면의 자료 목록/알람음 선택을 위해 세트별 상세를 미리 다 불러온다.
@@ -60,12 +70,18 @@ class AppData {
   // ── 알람 ──────────────────────────────────────────────────────
   Future<void> addAlarm(AlarmModel draft) async {
     final created = await AlarmsService.create(draft);
+    // 서버 응답(created)에는 customSoundPath가 없으므로(로컬 전용 값) 방금 사용자가
+    // 고른 값을 그대로 옮겨 붙이고, 기기 로컬에도 저장해서 재시작 후에도 복원되게 한다.
+    created.customSoundPath = draft.customSoundPath;
+    await _persistCustomSound(created);
     alarms.insert(0, created);
     await AlarmScheduler.schedule(created);
   }
 
   Future<void> updateAlarm(AlarmModel alarm) async {
     final updated = await AlarmsService.update(alarm);
+    updated.customSoundPath = alarm.customSoundPath; // 위 addAlarm과 동일한 이유
+    await _persistCustomSound(updated);
     final idx = alarms.indexWhere((a) => a.id == alarm.id);
     if (idx != -1) alarms[idx] = updated;
     await AlarmScheduler.schedule(updated);
@@ -75,6 +91,16 @@ class AppData {
     await AlarmsService.delete(id);
     alarms.removeWhere((a) => a.id == id);
     await AlarmScheduler.cancel(id);
+    await AlarmSoundStore.remove(id);
+  }
+
+  /// 알람의 커스텀 알람음(AI 노래) 경로를 AlarmSoundStore에 저장/삭제한다.
+  Future<void> _persistCustomSound(AlarmModel alarm) async {
+    if (alarm.soundId == kCustomSongSoundId && alarm.customSoundPath != null) {
+      await AlarmSoundStore.save(alarm.id, alarm.customSoundPath!);
+    } else {
+      await AlarmSoundStore.remove(alarm.id);
+    }
   }
 
   // ── 세트(폴더) ─────────────────────────────────────────────────

@@ -26,11 +26,20 @@ class AuthService {
   // ── 구글 로그인 ──────────────────────────────────────────────
   // GoogleSignIn 7.x부터는 GoogleSignIn.instance 싱글턴 + initialize() 필요.
   // serverClientId는 "웹 클라이언트 ID"여야 idToken이 채워진다 (안드로이드 클라이언트 ID 아님).
+  //
+  // 주의: initialize()는 앱 프로세스 생애주기 동안 딱 한 번만 호출해야 한다 - 두 번째부터는
+  // "Bad state: init() has already been called" 예외를 던진다. 로그인 실패(네트워크 오류 등) 후
+  // 사용자가 버튼을 다시 눌러 signInWithGoogle()이 재호출되는 흔한 케이스라서, 플래그로 막아둔다.
+  static bool _googleInitialized = false;
+
   static Future<AuthUser> signInWithGoogle() async {
     final signIn = GoogleSignIn.instance;
-    await signIn.initialize(
-      serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
-    );
+    if (!_googleInitialized) {
+      await signIn.initialize(
+        serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
+      );
+      _googleInitialized = true;
+    }
 
     final account = await signIn.authenticate();
     final idToken = account.authentication.idToken;
