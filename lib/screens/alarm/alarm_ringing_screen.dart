@@ -17,9 +17,11 @@ enum _Phase { ringing, loadingQuiz, quiz, quizError }
 ///
 /// 퀴즈 문제는 이제 로컬에 미리 들고 있던 게 아니라 알람이 울리는 시점에 서버
 /// (POST /api/sessions)에서 받아온다. 서버는 정답이 빠진 문제만 내려주고, 한 문제씩
-/// 제출해야(POST .../attempts) 정답 여부/정답/해설을 알려준다. 그리고 "필요한 정답 수"를
-/// 다 못 채우면(즉, 하나라도 틀리면) 알람 해제(POST .../dismiss)가 거부되므로, 그 경우
-/// 새 세션을 다시 시작해서(새 문제로) 다시 도전하게 만든다 (server/app/api/sessions.py 설계).
+/// 제출해야(POST .../attempts) 정답 여부/정답/해설을 알려준다. 세션에 내려온 문제를
+/// 전부 맞혀야만 dismiss_method="quiz"로 바로 해제되고(POST .../dismiss, 하나라도 틀리면
+/// 서버가 409 QUIZ_NOT_COMPLETED로 거부 - server/app/api/sessions.py 설계), 하나라도
+/// 틀리면 앱은 quiz dismiss를 시도하지 않고 곧장 동작 미션 화면으로 보내 미션 완료 후
+/// dismiss_method="mission"으로 해제한다.
 class AlarmRingingScreen extends StatefulWidget {
   final AlarmModel alarm;
   final MaterialSet? set;
@@ -171,51 +173,38 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
   }
 
   /// 한 라운드(현재 세션의 문제들)를 다 풀고 난 뒤 통과 여부를 이 앱이 직접 판정한다.
-  /// "3문제 중 2문제 이상"처럼 과반수 이상 맞히면 통과 - 서버의 'quiz' 해제는 전부
-  /// 정답이어야만 허용하므로, 과반수는 넘었지만 전부는 아닌 경우 'mission' 해제 방식으로
-  /// 대체한다(서버가 정답 여부를 검사하지 않는 해제 경로 - server/app/api/sessions.py 주석
-  /// "모션 판정은 앱 로컬 책임" 참고). 과반수를 못 넘기면 실제 동작 미션 화면으로 보낸다.
+  /// 세션에 내려온 문제를 전부 맞혀야만(서버 required_count 전량 충족) 'quiz' 방식으로
+  /// 바로 해제한다. 하나라도 틀리면 예외 없이 실제 동작 미션 화면으로 보내고, 미션을
+  /// 완료해야만 'mission' 방식으로 해제한다 (server/app/api/sessions.py 주석
+  /// "모션 판정은 앱 로컬 책임" 참고 - quiz 미달 상태로는 quiz dismiss를 아예 시도하지 않는다).
   void _finishRound() {
     final total = _session!.questions.length;
     final correctCount = _results.where((r) => r.isCorrect).length;
-    final passed = total > 0 && correctCount >= (total / 2).ceil();
+    final allCorrect = total > 0 && correctCount == total;
 
-    if (passed) {
-      _dismissAndFinish(preferredMethod: 'quiz');
+    if (allCorrect) {
+      _dismissAndFinish(dismissMethod: 'quiz');
     } else {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => MotionMissionScreen(
             wrongCount: total - correctCount,
-            onComplete: () => _dismissAndFinish(preferredMethod: 'mission'),
+            onComplete: () => _dismissAndFinish(dismissMethod: 'mission'),
           ),
         ),
       );
     }
   }
 
-  Future<void> _dismissAndFinish({required String preferredMethod}) async {
+  Future<void> _dismissAndFinish({required String dismissMethod}) async {
     try {
-      await SessionsService.dismiss(_session!.sessionId, dismissMethod: preferredMethod);
+      await SessionsService.dismiss(_session!.sessionId, dismissMethod: dismissMethod);
     } catch (e) {
-      if (preferredMethod == 'quiz' && e is ApiException && e.errorCode == 'QUIZ_NOT_COMPLETED') {
-        // 과반수는 통과했지만 서버가 요구하는 "전부 정답"은 못 채운 경우 - 정답 여부를
-        // 검사하지 않는 mission 방식으로 대체 해제한다.
-        try {
-          await SessionsService.dismiss(_session!.sessionId, dismissMethod: 'mission');
-        } catch (e2) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('알람 해제 실패: $e2')));
-          }
-          return;
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('알람 해제 실패: $e')));
-        }
-        return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('알람 해제 실패: $e')));
       }
+      return;
     }
     _finishQuiz();
   }
