@@ -7,7 +7,6 @@ pydantic
 pydantic-settings
 python-dotenv
 pdfplumber
-python-multipart
 google-genai
 # app/services/song.py는 아직 구버전 SDK(google-generativeai)를 쓴다 (전환 범위 밖) — 둘 다 필요.
 google-generativeai
