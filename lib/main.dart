@@ -18,6 +18,7 @@ import 'screens/my_page/my_page_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'services/alarm_scheduler.dart';
 import 'services/auth_service.dart';
+import 'services/stats_service.dart';
 import 'services/user_session.dart';
 import 'state/app_data.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -187,7 +188,17 @@ class _MainShellState extends State<MainShell> {
     super.dispose();
   }
 
-  void _onAlarmRinging(AlarmSet alarmSet) {
+  Future<void> _onAlarmRinging(AlarmSet alarmSet) async {
+    // 오늘의 리포트에 표시할 실제 연속 기상 일수 - 조회 실패 시 가짜 숫자를 보여주지
+    // 않고 null로 넘겨서 리포트 화면이 "-"/에러 문구로 대체하게 한다.
+    int? streakDays;
+    try {
+      streakDays = (await StatsService.summary()).currentStreak;
+    } catch (_) {
+      streakDays = null;
+    }
+    if (!mounted) return;
+
     for (final settings in alarmSet.alarms) {
       final alarm = _appData.findAlarm(settings.id);
       if (alarm == null) continue;
@@ -197,7 +208,7 @@ class _MainShellState extends State<MainShell> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AlarmRingingScreen(alarm: alarm, set: set, streakDays: 7),
+          builder: (_) => AlarmRingingScreen(alarm: alarm, set: set, streakDays: streakDays),
         ),
       );
     }

@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   AlarmModel? _nextAlarm;
 
   StatsSummary? _stats;
+  bool _statsError = false;
 
   @override
   void initState() {
@@ -42,11 +43,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadStats() async {
+    setState(() => _statsError = false);
     try {
       final stats = await StatsService.summary();
       if (mounted) setState(() => _stats = stats);
     } catch (_) {
-      // 통계 조회 실패는 화면 진입을 막을 정도는 아니라서 조용히 무시하고 기본값(0) 유지.
+      // 통계 조회 실패는 화면 진입을 막을 정도는 아니라서 화면은 그대로 두되, 가짜 0을
+      // 보여주지 않고 재시도 UI를 노출한다 (스트릭 카드 build 참고).
+      if (mounted) setState(() => _statsError = true);
     }
   }
 
@@ -125,8 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final set = _nextAlarm != null ? _setFor(_nextAlarm!) : null;
-    final streakDays = _stats?.currentStreak ?? 0;
-    final weeklyAccuracy = _stats?.correctRate.round() ?? 0;
 
     return Scaffold(
       backgroundColor: kBg,
@@ -239,45 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
 
               // 연속 기상 스트릭 카드 - /api/stats/summary
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: kCard,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kBorder),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFE8D6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text('🔥', style: TextStyle(fontSize: 20)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('$streakDays일 연속 기상 성공',
-                              style: TextStyle(
-                                  color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
-                          Text('전체 평균 정답률 $weeklyAccuracy%',
-                              style: TextStyle(color: kMuted, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Text('$streakDays',
-                        style: TextStyle(
-                            color: kPrimary, fontSize: 26, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
+              _streakCard(),
               const SizedBox(height: 24),
 
               // 최근 학습 자료
@@ -300,6 +264,60 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _streakCard() {
+    final streakDays = _stats?.currentStreak;
+    final weeklyAccuracy = _stats?.correctRate.round();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE8D6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: const Text('🔥', style: TextStyle(fontSize: 20)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  streakDays != null ? '$streakDays일 연속 기상 성공' : '연속 기상 기록을 불러올 수 없어요',
+                  style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                if (_statsError)
+                  GestureDetector(
+                    onTap: _loadStats,
+                    child: Text('불러오기 실패 · 다시 시도',
+                        style: TextStyle(color: kRed, fontSize: 12, fontWeight: FontWeight.w600)),
+                  )
+                else
+                  Text(
+                    weeklyAccuracy != null ? '전체 평균 정답률 $weeklyAccuracy%' : '불러오는 중...',
+                    style: TextStyle(color: kMuted, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          Text(streakDays != null ? '$streakDays' : '-',
+              style: TextStyle(color: kPrimary, fontSize: 26, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../../services/stats_service.dart';
 import '../auth/login_screen.dart';
 import 'notification_settings_screen.dart';
 import 'account_info_screen.dart';
+import '../stats/wrong_answer_screen.dart';
 import '../../widgets/section_title.dart';
 import '../../widgets/settings_group.dart';
 
@@ -25,7 +26,8 @@ class MyPageScreen extends StatefulWidget {
 }
 
 class _MyPageScreenState extends State<MyPageScreen> {
-  int _streakDays = 0;
+  int? _streakDays;
+  bool _statsError = false;
 
   @override
   void initState() {
@@ -34,11 +36,14 @@ class _MyPageScreenState extends State<MyPageScreen> {
   }
 
   Future<void> _loadStats() async {
+    setState(() => _statsError = false);
     try {
       final stats = await StatsService.summary();
       if (mounted) setState(() => _streakDays = stats.currentStreak);
     } catch (_) {
-      // 통계 조회 실패는 화면 진입을 막지 않는다 (0일로 표시).
+      // 통계 조회 실패는 화면 진입을 막지 않지만, 가짜 0을 보여주지 않고
+      // 재시도 UI를 노출한다 (스트릭 카드 build 참고).
+      if (mounted) setState(() => _statsError = true);
     }
   }
 
@@ -129,50 +134,19 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     // 스트릭 카드 (배너와 살짝 겹치게 위로 올림) - /api/stats/summary
                     Transform.translate(
                       offset: const Offset(0, -24),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: kCard,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: kBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            const Text('🔥', style: TextStyle(fontSize: 26)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('$_streakDays일',
-                                      style: TextStyle(
-                                          color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
-                                  Text('연속 미라클 모닝',
-                                      style: TextStyle(color: kMuted, fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                            if (_streakDays > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: kPrimary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text('진행 중!',
-                                    style: TextStyle(
-                                        color: kPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                          ],
-                        ),
-                      ),
+                      child: _streakCard(),
                     ),
                     const SizedBox(height: 4),
 
                     const SectionTitle('학습 설정'),
                     const SizedBox(height: 8),
                     SettingsGroup(items: [
+                      _menuItem('오답노트', onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WrongAnswerScreen()),
+                        );
+                      }),
                       _menuItem('알림 설정', onTap: () {
                         Navigator.push(
                           context,
@@ -223,6 +197,51 @@ class _MyPageScreenState extends State<MyPageScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _streakCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: kCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: kBorder),
+      ),
+      child: Row(
+        children: [
+          const Text('🔥', style: TextStyle(fontSize: 26)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_streakDays != null ? '$_streakDays일' : '-',
+                    style: TextStyle(color: kFg, fontSize: 20, fontWeight: FontWeight.bold)),
+                if (_statsError)
+                  GestureDetector(
+                    onTap: _loadStats,
+                    child: Text('불러오기 실패 · 다시 시도',
+                        style: TextStyle(color: kRed, fontSize: 12, fontWeight: FontWeight.w600)),
+                  )
+                else
+                  Text('연속 미라클 모닝', style: TextStyle(color: kMuted, fontSize: 12)),
+              ],
+            ),
+          ),
+          if ((_streakDays ?? 0) > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: kPrimary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('진행 중!',
+                  style: TextStyle(color: kPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+        ],
       ),
     );
   }

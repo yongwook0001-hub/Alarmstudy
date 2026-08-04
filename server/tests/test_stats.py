@@ -261,6 +261,10 @@ async def test_analysis_returns_existing_row(client, monkeypatch):
     assert body["weak_topics"] == [{"topic": "순회", "accuracy": 40}]
     assert body["comment"] == "분석 코멘트"
     assert body["analyzed_at"] is not None
+    # attempts를 하나도 안 쌓았으므로 정답률 3개 필드는 안전한 0이어야 한다.
+    assert body["total_attempts"] == 0
+    assert body["correct_count"] == 0
+    assert body["overall_accuracy"] == 0.0
 
 
 async def test_analysis_missing_returns_200_with_null_fields(client, monkeypatch):
@@ -271,7 +275,70 @@ async def test_analysis_missing_returns_200_with_null_fields(client, monkeypatch
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body == {"set_id": set_id, "weak_topics": None, "comment": None, "analyzed_at": None}
+    assert body == {
+        "set_id": set_id,
+        "weak_topics": None,
+        "comment": None,
+        "analyzed_at": None,
+        "total_attempts": 0,
+        "correct_count": 0,
+        "overall_accuracy": 0.0,
+    }
+
+
+async def test_analysis_includes_set_accuracy_from_attempts(client, monkeypatch):
+    headers, user_id = await _login(client, monkeypatch)
+    set_id = await _create_set(client, headers)
+    material_id = await _insert_material(set_id)
+    session_id = await _seed_dismissed_session(user_id, datetime.now(timezone.utc))
+    await _seed_attempt(session_id, is_correct=True, material_id=material_id)
+    await _seed_attempt(session_id, is_correct=True, material_id=material_id)
+    await _seed_attempt(session_id, is_correct=False, material_id=material_id)
+
+    resp = await client.get(f"/api/sets/{set_id}/analysis", headers=headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total_attempts"] == 3
+    assert body["correct_count"] == 2
+    assert body["overall_accuracy"] == 66.7
+
+
+async def test_analysis_accuracy_excludes_other_sets_attempts(client, monkeypatch):
+    headers, user_id = await _login(client, monkeypatch)
+    set_a = await _create_set(client, headers, title="세트 A")
+    set_b = await _create_set(client, headers, title="세트 B")
+    material_a = await _insert_material(set_a)
+    material_b = await _insert_material(set_b)
+    session_id = await _seed_dismissed_session(user_id, datetime.now(timezone.utc))
+    await _seed_attempt(session_id, is_correct=True, material_id=material_a)
+    await _seed_attempt(session_id, is_correct=False, material_id=material_b)
+
+    resp = await client.get(f"/api/sets/{set_a}/analysis", headers=headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total_attempts"] == 1
+    assert body["correct_count"] == 1
+    assert body["overall_accuracy"] == 100.0
+
+
+async def test_analysis_accuracy_present_even_without_weak_area_row(client, monkeypatch):
+    headers, user_id = await _login(client, monkeypatch)
+    set_id = await _create_set(client, headers)
+    material_id = await _insert_material(set_id)
+    session_id = await _seed_dismissed_session(user_id, datetime.now(timezone.utc))
+    await _seed_attempt(session_id, is_correct=True, material_id=material_id)
+
+    resp = await client.get(f"/api/sets/{set_id}/analysis", headers=headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["weak_topics"] is None
+    assert body["comment"] is None
+    assert body["total_attempts"] == 1
+    assert body["correct_count"] == 1
+    assert body["overall_accuracy"] == 100.0
 
 
 async def test_analysis_other_users_set_returns_404(client, monkeypatch):

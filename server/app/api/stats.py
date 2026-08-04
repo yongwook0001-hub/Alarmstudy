@@ -42,6 +42,9 @@ class AnalysisResponse(BaseModel):
     weak_topics: list[dict] | None
     comment: str | None
     analyzed_at: datetime | None
+    total_attempts: int
+    correct_count: int
+    overall_accuracy: float
 
 
 class StatsSummaryResponse(BaseModel):
@@ -130,16 +133,44 @@ async def get_set_analysis(
     material_set: MaterialSet = Depends(get_owned_material_set),
     db: AsyncSession = Depends(get_db),
 ) -> AnalysisResponse:
+    # 세트 단위 정답률은 집계 테이블 없이 매 요청 실시간 계산 — attempts가 material_id로만
+    # 세트에 연결되므로 study_materials를 거쳐 조인해야 한다.
+    total_attempts, correct_count = (
+        await db.execute(
+            select(
+                func.count(QuestionAttempt.id),
+                func.count(QuestionAttempt.id).filter(QuestionAttempt.is_correct.is_(True)),
+            )
+            .join(StudyMaterial, QuestionAttempt.material_id == StudyMaterial.id)
+            .where(StudyMaterial.set_id == material_set.id)
+        )
+    ).one()
+    total_attempts = total_attempts or 0
+    correct_count = correct_count or 0
+    overall_accuracy = round(100 * correct_count / total_attempts, 1) if total_attempts else 0.0
+
     analysis = await db.scalar(select(WeakAreaAnalysis).where(WeakAreaAnalysis.set_id == material_set.id))
     if analysis is None:
-        # 분석 미존재는 정상 상태 — 404가 아니라 200 + null 필드로 응답한다 (설계 확정).
-        return AnalysisResponse(set_id=material_set.id, weak_topics=None, comment=None, analyzed_at=None)
+        # 분석(weak_topics/comment) 미존재는 정상 상태 — 404가 아니라 200 + null 필드로 응답한다
+        # (설계 확정). 정답률 3개 필드는 분석 존재 여부와 무관하게 항상 실계산해서 채운다.
+        return AnalysisResponse(
+            set_id=material_set.id,
+            weak_topics=None,
+            comment=None,
+            analyzed_at=None,
+            total_attempts=total_attempts,
+            correct_count=correct_count,
+            overall_accuracy=overall_accuracy,
+        )
 
     return AnalysisResponse(
         set_id=analysis.set_id,
         weak_topics=analysis.weak_topics,
         comment=analysis.comment,
         analyzed_at=analysis.analyzed_at,
+        total_attempts=total_attempts,
+        correct_count=correct_count,
+        overall_accuracy=overall_accuracy,
     )
 
 

@@ -7,7 +7,7 @@ class TodayReportScreen extends StatelessWidget {
   final String alarmTime;
   final Duration elapsed;
   final List<QuizAnswerResult> results;
-  final int streakDays;
+  final int? streakDays; // null = 서버 스트릭 조회 실패 (가짜 숫자 대신 "-" 표시)
   final String? weakestTopic;
 
   const TodayReportScreen({
@@ -75,12 +75,14 @@ class TodayReportScreen extends StatelessWidget {
                         children: [
                           Text('오늘도 미라클모닝 성공!',
                               style: TextStyle(color: kFg, fontSize: 15, fontWeight: FontWeight.bold)),
-                          Text('$streakDays일 연속 기상 중이에요',
-                              style: TextStyle(color: kMuted, fontSize: 12)),
+                          Text(
+                            streakDays != null ? '$streakDays일 연속 기상 중이에요' : '연속 기록을 불러오지 못했어요',
+                            style: TextStyle(color: kMuted, fontSize: 12),
+                          ),
                         ],
                       ),
                     ),
-                    Text('$streakDays',
+                    Text(streakDays != null ? '$streakDays' : '-',
                         style: TextStyle(color: kPrimary, fontSize: 28, fontWeight: FontWeight.bold)),
                   ],
                 ),

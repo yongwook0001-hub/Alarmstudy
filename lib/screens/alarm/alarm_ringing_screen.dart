@@ -23,14 +23,14 @@ enum _Phase { ringing, loadingQuiz, quiz, quizError }
 class AlarmRingingScreen extends StatefulWidget {
   final AlarmModel alarm;
   final MaterialSet? set;
-  final int streakDays; // 오늘의 리포트에 표시할 연속 기상 일수
+  final int? streakDays; // 오늘의 리포트에 표시할 연속 기상 일수. null = 서버 조회 실패
   final bool practiceMode; // true면 알람 울림 단계 없이 바로 퀴즈로 시작 (가상 문제풀이용)
 
   const AlarmRingingScreen({
     super.key,
     required this.alarm,
     this.set,
-    this.streakDays = 0,
+    this.streakDays,
     this.practiceMode = false,
   });
 

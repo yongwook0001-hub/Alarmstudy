@@ -28,7 +28,7 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
   bool _isPlaying = false;
 
   bool _refreshing = false;
-  Map<String, dynamic>? _analysis; // GET /api/sets/{id}/analysis 응답 (weak_topics/comment)
+  SetAnalysis? _analysis; // GET /api/sets/{id}/analysis 응답 (weak_topics/comment/세트 정답률)
   List<WrongAnswerItem> _wrongAnswers = [];
 
   @override
@@ -54,7 +54,7 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
       ]);
       if (!mounted) return;
       setState(() {
-        _analysis = results[0] as Map<String, dynamic>;
+        _analysis = results[0] as SetAnalysis;
         _wrongAnswers = (results[1] as List<WrongAnswerItem>)
             .where((w) => w.materialId == widget.material.id)
             .toList();
@@ -350,13 +350,50 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
             ),
             const SizedBox(height: 12),
 
-            // 세트(폴더) 단위 약점 분석 - server/app/api/stats.py GET /api/sets/{id}/analysis
+            // 세트 정답률 - total_attempts/correct_count/overall_accuracy. weak_topics/comment와
+            // 달리 분석 row 존재 여부와 무관하게 서버가 항상 실시간 계산해서 채워준다.
             _card(
-              title: '이 폴더의 약점 분석',
-              child: _analysis == null || _analysis!['analyzed_at'] == null
+              title: '이 세트의 정답률',
+              child: _analysis == null
+                  ? Text('불러오지 못했어요.', style: TextStyle(color: kMuted, fontSize: 13))
+                  : _analysis!.totalAttempts == 0
+                      ? Text('아직 푼 문제가 없어요. 알람 퀴즈를 풀면 여기에 정답률이 쌓여요.',
+                          style: TextStyle(color: kMuted, fontSize: 13, height: 1.5))
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text('${_analysis!.overallAccuracy.toStringAsFixed(1)}%',
+                                style: TextStyle(color: kPrimary, fontSize: 28, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 10),
+                            Text('${_analysis!.correctCount} / ${_analysis!.totalAttempts}문제 정답',
+                                style: TextStyle(color: kMuted, fontSize: 13)),
+                          ],
+                        ),
+            ),
+            const SizedBox(height: 12),
+
+            // 주제별 정답률 - weak_topics를 정답률 낮은 순(가장 취약한 주제가 위로)으로 표시
+            _card(
+              title: '주제별 정답률',
+              child: (_analysis?.weakTopics == null || _analysis!.weakTopics!.isEmpty)
+                  ? Text('아직 주제별 데이터가 없어요.', style: TextStyle(color: kMuted, fontSize: 13))
+                  : Column(
+                      children: (List<WeakTopicStat>.of(_analysis!.weakTopics!)
+                            ..sort((a, b) => a.accuracy.compareTo(b.accuracy)))
+                          .map((t) => _topicRow(t))
+                          .toList(),
+                    ),
+            ),
+            const SizedBox(height: 12),
+
+            // 세트(폴더) 단위 약점 분석 코멘트 - server/app/api/stats.py GET /api/sets/{id}/analysis
+            _card(
+              title: 'AI 약점 분석',
+              child: _analysis == null || _analysis!.analyzedAt == null
                   ? Text('아직 분석 결과가 없어요. 알람 퀴즈를 몇 번 풀면 여기에 쌓여요.',
                       style: TextStyle(color: kMuted, fontSize: 13, height: 1.5))
-                  : Text(_analysis!['comment']?.toString() ?? '분석 결과가 있어요.',
+                  : Text(_analysis!.comment ?? '분석 결과가 있어요.',
                       style: TextStyle(color: kFg, fontSize: 13, height: 1.5)),
             ),
 
@@ -401,6 +438,35 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
         const SizedBox(height: 12),
         child,
       ]),
+    );
+  }
+
+  Widget _topicRow(WeakTopicStat topic) {
+    final pct = topic.accuracy.clamp(0, 100);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(topic.topic, style: TextStyle(color: kFg, fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('$pct%', style: TextStyle(color: kMuted, fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: pct / 100,
+              backgroundColor: kBorder,
+              color: pct < 50 ? kRed : kPrimary,
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
