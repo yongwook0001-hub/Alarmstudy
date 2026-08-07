@@ -8,7 +8,7 @@ import '../../models/quiz_answer_result.dart';
 import '../../services/alarm_scheduler.dart';
 import '../../services/sessions_service.dart';
 import '../../services/api_client.dart';
-import 'motion_mission_screen.dart';
+import 'motion_mission_select_screen.dart';
 import 'today_report_screen.dart';
 
 enum _Phase { ringing, loadingQuiz, quiz, quizError }
@@ -172,24 +172,26 @@ class _AlarmRingingScreenState extends State<AlarmRingingScreen> {
     _finishRound();
   }
 
-  /// 한 라운드(현재 세션의 문제들)를 다 풀고 난 뒤 통과 여부를 이 앱이 직접 판정한다.
-  /// 세션에 내려온 문제를 전부 맞혀야만(서버 required_count 전량 충족) 'quiz' 방식으로
-  /// 바로 해제한다. 하나라도 틀리면 예외 없이 실제 동작 미션 화면으로 보내고, 미션을
-  /// 완료해야만 'mission' 방식으로 해제한다 (server/app/api/sessions.py 주석
-  /// "모션 판정은 앱 로컬 책임" 참고 - quiz 미달 상태로는 quiz dismiss를 아예 시도하지 않는다).
+  /// 한 라운드의 퀴즈 결과를 판정한다.
+  /// - 전부 맞히면 quiz 방식으로 바로 해제한다.
+  /// - 오답이 2개 이상이면 앱에서 동작 미션 화면으로 이동시킨다.
+  ///   이 지점이 변경된 핵심 흐름이며, 실제 기기 카메라 기반 미션을 통해
+  ///   사용자가 미션을 완료해야만 mission 방식으로 알람을 해제할 수 있다.
   void _finishRound() {
     final total = _session!.questions.length;
     final correctCount = _results.where((r) => r.isCorrect).length;
+    final wrongCount = total - correctCount;
     final allCorrect = total > 0 && correctCount == total;
+    final needsMission = wrongCount >= 2;
 
-    if (allCorrect) {
+    if (allCorrect || !needsMission) {
       _dismissAndFinish(dismissMethod: 'quiz');
     } else {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => MotionMissionScreen(
-            wrongCount: total - correctCount,
+          builder: (_) => MotionMissionSelectScreen(
+            wrongCount: wrongCount,
             onComplete: () => _dismissAndFinish(dismissMethod: 'mission'),
           ),
         ),
