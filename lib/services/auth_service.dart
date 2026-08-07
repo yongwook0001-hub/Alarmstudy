@@ -20,6 +20,11 @@ class AuthService {
       dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8000';
 
   static const _storage = FlutterSecureStorage();
+
+  static bool get isTestModeEnabled {
+    final value = dotenv.env['USE_TEST_MODE']?.toLowerCase();
+    return kDebugMode && (value == 'true' || value == '1');
+  }
   static const _kAccessToken = 'access_token';
   static const _kRefreshToken = 'refresh_token';
 
@@ -32,7 +37,21 @@ class AuthService {
   // 사용자가 버튼을 다시 눌러 signInWithGoogle()이 재호출되는 흔한 케이스라서, 플래그로 막아둔다.
   static bool _googleInitialized = false;
 
+  static Future<AuthUser> signInTestUser() async {
+    await _storage.write(key: _kAccessToken, value: 'test-access-token');
+    await _storage.write(key: _kRefreshToken, value: 'test-refresh-token');
+    return AuthUser(
+      id: 999999,
+      provider: 'test',
+      email: 'test@example.com',
+      nickname: '테스트유저',
+      profileImageUrl: null,
+    );
+  }
+
   static Future<AuthUser> signInWithGoogle() async {
+    if (isTestModeEnabled) return signInTestUser();
+
     final signIn = GoogleSignIn.instance;
     if (!_googleInitialized) {
       await signIn.initialize(
@@ -53,6 +72,8 @@ class AuthService {
   // ── 카카오 로그인 ────────────────────────────────────────────
   // 카카오톡 앱이 설치돼 있으면 그걸로, 아니면 카카오계정(웹) 로그인으로 대체.
   static Future<AuthUser> signInWithKakao() async {
+    if (isTestModeEnabled) return signInTestUser();
+
     OAuthToken token;
     if (await isKakaoTalkInstalled()) {
       try {
@@ -97,7 +118,10 @@ class AuthService {
   }
 
   // ── 저장된 access token 꺼내오기 (다른 API 호출 시 Authorization 헤더용) ──
-  static Future<String?> getAccessToken() => _storage.read(key: _kAccessToken);
+  static Future<String?> getAccessToken() async {
+    if (isTestModeEnabled) return 'test-access-token';
+    return _storage.read(key: _kAccessToken);
+  }
 
   // ── access token 갱신 (refresh_token은 그대로 유지, 새로 안 내려옴) ──
   static Future<String> refreshAccessToken() async {
@@ -124,6 +148,16 @@ class AuthService {
 
   // ── 내 정보 조회 (Bearer 인증 필요) ─────────────────────────────
   static Future<AuthUser> getMe() async {
+    if (isTestModeEnabled) {
+      return AuthUser(
+        id: 999999,
+        provider: 'test',
+        email: 'test@example.com',
+        nickname: '테스트유저',
+        profileImageUrl: null,
+      );
+    }
+
     final accessToken = await getAccessToken();
     if (accessToken == null) throw Exception('로그인이 필요합니다.');
 

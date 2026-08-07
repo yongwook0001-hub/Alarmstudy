@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/text_input_field.dart';
 import '../../widgets/primary_button.dart';
 import 'onboarding_screen.dart';
+import '../../main.dart'; // 우회용. 추후에 삭제
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -115,9 +116,29 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 28),
 
+              
+              PrimaryButton(
+                label: '가입하기',
+                onTap: () {
+                   if (!_agreedToTerms) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                       const SnackBar(content: Text('이용약관 및 개인정보 처리방침에 동의해주세요.')),
+                    );
+                    return;
+                   }
+
+                   Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MainShell()),
+                    (route) => false,
+                  );
+                },
+              ),
+
               // 가입하기 버튼
               // 주의: 이메일/비밀번호 회원가입은 백엔드 지원이 없어 실제 계정 생성은 안 됨.
               // UI 흐름 확인용으로 약관 동의 시 온보딩 화면으로 이동만 처리.
+              /*
               PrimaryButton(
                 label: '가입하기',
                 onTap: () {
@@ -133,6 +154,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   );
                 },
               ),
+              */
+              
               const SizedBox(height: 24),
 
               // 로그인 링크

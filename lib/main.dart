@@ -113,6 +113,13 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _check() async {
+    if (AuthService.isTestModeEnabled) {
+      final user = await AuthService.signInTestUser();
+      UserSession.set(user);
+      if (mounted) setState(() => _state = _GateState.loggedIn);
+      return;
+    }
+
     final token = await AuthService.getAccessToken();
     if (token == null) {
       setState(() => _state = _GateState.loggedOut);
@@ -333,7 +340,7 @@ class _MainShellState extends State<MainShell> {
       );
     }
 
-    return Scaffold(
+    return Scaffold(  
       body: _buildScreen(context),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

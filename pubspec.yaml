@@ -24,6 +24,10 @@ dependencies:
   audioplayers: ^6.1.0            # 알람음/생성된 노래 미리듣기 재생
   alarm: ^5.5.0                   # 실제 기기 알람 예약 (앱이 꺼져있어도 설정 시간에 울림)
   permission_handler: ^11.3.1     # Android 12+ 정확한 알람(SCHEDULE_EXACT_ALARM) 권한 요청
+  camera: ^0.11.0                 # 카메라 프리뷰와 실시간 이미지 입력
+  google_mlkit_commons: ^0.7.1    # ML Kit 공통 유틸리티
+  google_mlkit_face_detection: ^0.11.0  # 얼굴 인식(눈 깜빡임)
+  google_mlkit_pose_detection: ^0.11.0  # 포즈 인식(스쿼트/걸음)
 
 
 dev_dependencies:
