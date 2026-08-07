@@ -1,5 +1,4 @@
 import 'api_client.dart';
-import 'auth_service.dart';
 
 class StatsSummary {
   final int currentStreak;
@@ -133,8 +132,6 @@ class SetAnalysis {
 /// server/app/api/stats.py (/api/stats/summary, /api/wrong-answers, /api/sets/{id}/analysis) 호출 담당.
 class StatsService {
   static Future<StatsSummary> summary() async {
-    if (AuthService.isTestModeEnabled) return StatsSummary.empty();
-
     // 앱이 한국어 전용이라 타임존은 고정값으로 보낸다 (server/app/api/stats.py가
     // tz 쿼리 파라미터를 필수로 요구해서 - "오늘"의 기준이 서버 UTC가 아니라
     // 이 타임존 기준이 되도록 함).

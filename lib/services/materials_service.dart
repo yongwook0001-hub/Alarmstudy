@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
-import 'auth_service.dart';
 import 'sets_service.dart';
 
 /// server/app/api/materials.py 호출 담당 - PDF 업로드는 서버를 거치지 않고
@@ -11,8 +10,6 @@ import 'sets_service.dart';
 ///      presigned 서명에 Content-Type을 포함하지 않았으므로 헤더를 붙이면 오히려 서명이 안 맞음)
 ///   3) POST /api/materials/{material_id}/upload-complete → 서버가 백그라운드로 파싱 시작
 ///   4) GET /api/sets/{set_id} 폴링 - upload_status가 ready/parse_failed가 될 때까지 대기
-///
-/// 테스트 모드에서는 S3/서버 없이 SetsService 인메모리 목록에 ready 상태 자료를 바로 추가한다.
 class MaterialsService {
   static const _pollInterval = Duration(seconds: 2);
   static const _pollTimeout = Duration(seconds: 60);
@@ -29,15 +26,6 @@ class MaterialsService {
     required Uint8List bytes,
     bool isMain = false,
   }) async {
-    if (AuthService.isTestModeEnabled) {
-      return SetsService.addTestMaterial(
-        setId: setId,
-        fileName: fileName,
-        fileSizeBytes: bytes.length,
-        isMain: isMain,
-      );
-    }
-
     final presign = await ApiClient.post(
       '/api/sets/$setId/materials/presigned-url',
       body: {'file_name': fileName, 'file_size_bytes': bytes.length, 'is_main': isMain},
@@ -70,11 +58,5 @@ class MaterialsService {
     }
   }
 
-  static Future<void> delete(int materialId) async {
-    if (AuthService.isTestModeEnabled) {
-      SetsService.removeTestMaterial(materialId);
-      return;
-    }
-    await ApiClient.delete('/api/materials/$materialId');
-  }
+  static Future<void> delete(int materialId) => ApiClient.delete('/api/materials/$materialId');
 }
